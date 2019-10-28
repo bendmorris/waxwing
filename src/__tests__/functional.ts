@@ -16,12 +16,12 @@ function globDir(dir: string, pattern: string): string[] {
     return results;
 }
 
-for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
-    describe('functional tests', () => {
+describe('functional tests', () => {
+    for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
         test(`${testPath}`, () => {
             const out = compile(testPath);
             const check = fs.readFileSync(testPath.replace(/\.in\.js$/, '.out.js')).toString();
             expect(out).toMatch(check);
         });
-    });
-}
+    }
+});

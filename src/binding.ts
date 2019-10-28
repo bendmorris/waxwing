@@ -1,32 +1,26 @@
+import Ast from './ast';
 import { Constraint } from './constraint';
-import { FunctionType, TypeSpec } from './type';
 
-const enum BindingType {
-    Var,
-    Function,
-}
-
-export const enum VarScope {
+export const enum BindingType {
+    Arg,
     Var,
     Let,
     Const,
+    Function,
+    ArrowFunction,
 }
 
-interface BaseBinding {
-    kind: BindingType,
-    name: string,
-    type: TypeSpec,
-    constraints: Constraint[]
-}
+export class Binding {
+    kind: BindingType;
+    name: string;
+    source?: Ast;
+    value?: any;
+    constraints: Constraint[] = [];
 
-export interface VarBinding extends BaseBinding {
-    kind: BindingType.Var,
-    scope: VarScope,
+    constructor(kind: BindingType, name: string, source?: Ast, value?: any) {
+        this.kind = kind;
+        this.name = name;
+        this.source = source;
+        this.value = value;
+    }
 }
-
-export interface FunctionBinding extends BaseBinding {
-    kind: BindingType.Function,
-    type: FunctionType,
-}
-
-export type Binding = VarBinding | FunctionBinding;
