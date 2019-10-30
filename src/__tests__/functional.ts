@@ -21,7 +21,7 @@ describe('functional tests', () => {
         test(`${testPath}`, () => {
             const out = compile(testPath);
             const check = fs.readFileSync(testPath.replace(/\.in\.js$/, '.out.js')).toString();
-            expect(out).toMatch(check);
+            expect(out).toEqual(check);
         });
     }
 });

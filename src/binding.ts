@@ -14,13 +14,13 @@ export class Binding {
     kind: BindingType;
     name: string;
     source?: Ast;
-    value?: any;
+    initializer?: Ast;
     constraints: Constraint[] = [];
 
-    constructor(kind: BindingType, name: string, source?: Ast, value?: any) {
+    constructor(kind: BindingType, name: string, source?: Ast, initializer?: any) {
         this.kind = kind;
         this.name = name;
         this.source = source;
-        this.value = value;
+        this.initializer = initializer;
     }
 }

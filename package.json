@@ -7,6 +7,7 @@
     "waxwing": "lib/cli.js"
   },
   "scripts": {
+    "start": "node lib/cli.js",
     "build": "node_modules/.bin/tsc",
     "clean": "rm -rf lib",
     "test": "jest"

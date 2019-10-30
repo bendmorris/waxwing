@@ -39,7 +39,7 @@ function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
                         childAst.scope = new Scope();
                     }
                     // TODO: initial value
-                    childAst.scope.set(declaration.id.name, new Binding(bindingType, declaration.id.name, declaration));
+                    childAst.scope.set(declaration.id.name, new Binding(bindingType, declaration.id.name, declaration, declaration.init));
                 }
             }
         } else if (babel.types.isFunctionDeclaration(child)) {
