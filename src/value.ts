@@ -1,18 +1,25 @@
 import { Ast } from './ast';
 
-interface ConcreteValue {
+export const enum ValueType {
+    Concrete,
+    Abstract,
+    Function,
+}
+
+export interface ConcreteValue {
+    kind: ValueType.Concrete,
     value?: any,
 }
 
-interface FunctionValue {
+export interface FunctionValue {
+    kind: ValueType.Function,
     body: Ast,
     isArrowFunction: boolean,
 }
 
-interface AbstractValue {
+export interface AbstractValue {
+    kind: ValueType.Abstract,
     ast: Ast
 }
 
-type Value = ConcreteValue | FunctionValue | AbstractValue;
-
-export default Value;
+export type Value = ConcreteValue | FunctionValue | AbstractValue;

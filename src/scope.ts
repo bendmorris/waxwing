@@ -1,4 +1,4 @@
-import Value from './value';
+import { Value } from './value';
 
 export default class Scope extends Map<string, Value> {
     static resolve(name: string, scopes: Scope[]): Value | undefined {

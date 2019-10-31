@@ -1,4 +1,3 @@
-// import Value from './value';
 import { Effect } from './effect';
 import Scope from './scope';
 import * as babel from '@babel/core';

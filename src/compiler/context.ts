@@ -1,7 +1,8 @@
 import { Ast } from '../ast';
 import Scope from '../scope';
-import Value from '../value';
+import { Value } from '../value';
 import findDeclarations from './findDeclarations';
+import localOptimizations from './localOptimizations';
 
 export class ExecutionContext {
     scopes: Scope[] = [];
@@ -17,6 +18,7 @@ export class ExecutionContext {
 
     compile(ast: Ast): Ast {
         findDeclarations(ast);
+        localOptimizations(this, ast);
         return ast;
     }
 }

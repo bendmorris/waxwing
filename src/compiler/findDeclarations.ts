@@ -2,6 +2,7 @@ import * as babel from '@babel/core';
 import babelTraverse from '@babel/traverse';
 import { Ast, addEffect } from '../ast';
 import { DefineEffect} from '../effect';
+import { Value, ValueType } from '../value';
 import { knownValue } from './utils';
 
 function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
@@ -12,10 +13,10 @@ function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
                 if (babel.types.isIdentifier(declaration.id)) {
                     const childAst = child as Ast;
                     const known = knownValue(undefined, declaration.init as Ast);
-                    const initializer = known ? { value: known } : { ast: declaration.init };
+                    const initializer: Value = known ? { kind: ValueType.Concrete, value: known } : { kind: ValueType.Abstract, ast: declaration.init as Ast };
                     if (bindingType === "var") {
                         // hoist var declaration
-                        addEffect(path, new DefineEffect(declaration.id.name, { value: undefined }));
+                        addEffect(path, new DefineEffect(declaration.id.name, { kind: ValueType.Concrete, value: undefined }));
                         addEffect(childAst, new DefineEffect(declaration.id.name, initializer));
                     } else {
                         addEffect(childAst, new DefineEffect(declaration.id.name, initializer));
@@ -24,6 +25,7 @@ function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
             }
         } else if (babel.types.isFunctionDeclaration(child)) {
             addEffect(path, new DefineEffect(child.id.name, {
+                kind: ValueType.Function,
                 body: child as Ast,
                 isArrowFunction: false
             }));
