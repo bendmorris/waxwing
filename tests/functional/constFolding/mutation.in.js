@@ -1,4 +1,6 @@
-let x = "abc";
-x += "def";
-x += "ghi";
-console.log(x);
+{
+    let x = "abc";
+    x += "def";
+    x += "ghi";
+    console.log(x);
+}

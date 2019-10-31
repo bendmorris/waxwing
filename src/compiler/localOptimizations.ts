@@ -30,6 +30,13 @@ const binOps = {
     "!==": (a, b) => a !== b,
 }
 
+const unOps = {
+    "!": (a) => !a,
+    "~": (a) => ~a,
+    "+": (a) => +a,
+    "-": (a) => -a,
+}
+
 function optimizeBinop(ctx: ExecutionContext, ast: Ast, path) {
     let left, right;
     if (binOps[path.node.operator] && (left = knownValue(ctx, path.node.left as Ast)) && (right = knownValue(ctx, path.node.right as Ast)) && left.kind === ValueType.Concrete && right.kind === ValueType.Concrete) {
@@ -43,11 +50,27 @@ function optimizeBinop(ctx: ExecutionContext, ast: Ast, path) {
 
 export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
     babelTraverse(ast, {
-        BinaryExpression(path) {
-            optimizeBinop(ctx, ast, path);
+        BinaryExpression: {
+            exit(path) {
+                optimizeBinop(ctx, ast, path);
+            }
         },
-        LogicalExpression(path) {
-            optimizeBinop(ctx, ast, path);
+        LogicalExpression: {
+            exit(path) {
+                optimizeBinop(ctx, ast, path);
+            }
         },
+        UnaryExpression: {
+            exit(path) {
+                let operand;
+                if (unOps[path.node.operator] && (operand = knownValue(ctx, path.node.argument as Ast)) && operand.kind === ValueType.Concrete) {
+                    const result = unOps[path.node.operator](operand.value);
+                    const resultValue = anyToNode(result);
+                    if (resultValue) {
+                        path.replaceWith(resultValue);
+                    }
+                }
+            }
+        }
     });
 }
