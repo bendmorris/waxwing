@@ -12,8 +12,13 @@ function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
             for (const declaration of child.declarations) {
                 if (babel.types.isIdentifier(declaration.id)) {
                     const childAst = child as Ast;
-                    const known = knownValue(undefined, declaration.init as Ast);
-                    const initializer: Value = known ? { kind: ValueType.Concrete, value: known } : { kind: ValueType.Abstract, ast: declaration.init as Ast };
+                    let initializer: Value;
+                    if (declaration.init) {
+                        const known = knownValue(undefined, declaration.init as Ast);
+                        initializer = known ? { kind: ValueType.Concrete, value: known } : { kind: ValueType.Abstract, ast: declaration.init as Ast };
+                    } else {
+                        initializer = { kind: ValueType.Concrete, value: undefined };
+                    }
                     if (bindingType === "var") {
                         // hoist var declaration
                         addEffect(path, new DefineEffect(declaration.id.name, { kind: ValueType.Concrete, value: undefined }));
@@ -24,6 +29,7 @@ function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
                 }
             }
         } else if (babel.types.isFunctionDeclaration(child)) {
+            // hoist function declaration
             addEffect(path, new DefineEffect(child.id.name, {
                 kind: ValueType.Function,
                 body: child as Ast,

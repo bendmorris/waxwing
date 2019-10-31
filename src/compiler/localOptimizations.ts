@@ -34,7 +34,7 @@ const unOps = {
     "!": (a) => !a,
     "~": (a) => ~a,
     "+": (a) => +a,
-    "-": (a) => -a,
+    // ignore -, used with literals and generally not worth simplifying
 }
 
 function optimizeBinop(ctx: ExecutionContext, ast: Ast, path) {
@@ -49,6 +49,8 @@ function optimizeBinop(ctx: ExecutionContext, ast: Ast, path) {
 }
 
 export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
+    // TODO: if we're optimizing for size, we shouldn't simplify expressions that increase code size;
+    // unfortunately this depends on minification
     babelTraverse(ast, {
         BinaryExpression: {
             exit(path) {
