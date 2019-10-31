@@ -1,4 +1,4 @@
-import Ast from './ast';
+import { Ast } from './ast';
 import * as babelParser from '@babel/parser';
 import fs from 'fs';
 
@@ -9,5 +9,5 @@ export function parseFile(path: string): Ast {
 }
 
 export function parse(code: string, options: babelParser.ParserOptions): Ast {
-    return babelParser.parse(code, options);
+    return babelParser.parse(code, options) as Ast;
 }

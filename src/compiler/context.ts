@@ -1,9 +1,9 @@
-import Ast from '../ast';
-import { Binding } from '../binding';
+import { Ast } from '../ast';
 import Scope from '../scope';
+import Value from '../value';
 import findDeclarations from './findDeclarations';
 
-export default class CompileContext {
+export class ExecutionContext {
     scopes: Scope[] = [];
 
     constructor() {
@@ -11,12 +11,12 @@ export default class CompileContext {
         this.scopes.push(globalScope);
     }
 
-    resolve(name: string): Binding | undefined {
+    resolve(name: string): Value | undefined {
         return Scope.resolve(name, this.scopes);
     }
 
     compile(ast: Ast): Ast {
-        findDeclarations(this, ast);
+        findDeclarations(ast);
         return ast;
     }
 }
