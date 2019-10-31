@@ -71,6 +71,18 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     }
                 }
             }
+        },
+        ConditionalExpression: {
+            exit(path) {
+                let test;
+                if ((test = knownValue(ctx, path.node.test as Ast)) && test.kind === ValueType.Concrete) {
+                    if (test.value) {
+                        path.replaceWith(path.node.consequent);
+                    } else {
+                        path.replaceWith(path.node.alternate);
+                    }
+                }
+            }
         }
     });
 }
