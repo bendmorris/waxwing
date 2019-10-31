@@ -1,13 +1,20 @@
 import { Ast } from '../ast';
-import { ExecutionContext } from './context';
+import { CompileContext } from './context';
+import { Options } from '../options';
 import { parseFile } from '../parser';
 import serialize from '../serialize';
 
-export default function compile(input: string | Ast): string {
-    if (typeof input === 'string') {
-        input = parseFile(input);
+export default function compile(options: Options): string {
+    let input: Ast;
+    if (typeof options.input === 'string') {
+        input = parseFile(options.input);
+    } else {
+        input = options.input;
     }
-    const context = new ExecutionContext();
+    if (!input) {
+        throw "Couldn't parse input " + options.input;
+    }
+    const context = new CompileContext(options);
     const result = context.compile(input);
     return serialize(result);
 }

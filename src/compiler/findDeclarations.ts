@@ -1,11 +1,12 @@
 import * as babel from '@babel/core';
 import babelTraverse from '@babel/traverse';
+import * as babelTypes from '@babel/types';
 import { Ast, addEffect } from '../ast';
 import { DefineEffect} from '../effect';
 import { Value, ValueType } from '../value';
 import { knownValue } from './utils';
 
-function findDeclarationsInBody(path: Ast, body: babel.types.Statement[]) {
+function findDeclarationsInBody(path: Ast, body: babelTypes.Statement[]) {
     for (const child of body) {
         if (babel.types.isVariableDeclaration(child)) {
             const bindingType = child.kind;

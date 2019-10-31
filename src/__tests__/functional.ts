@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import compile from '../compiler';
+import { Options, makeOptions } from '../options';
 
 function globDir(dir: string, pattern: string): string[] {
     let results = [];
@@ -19,7 +20,10 @@ function globDir(dir: string, pattern: string): string[] {
 describe('functional tests', () => {
     for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
         test(`${testPath}`, () => {
-            const out = compile(testPath);
+            const options: Options = makeOptions({
+                input: testPath,
+            });
+            const out = compile(options);
             const check = fs.readFileSync(testPath.replace(/\.in\.js$/, '.out.js')).toString();
             expect(out).toEqual(check);
         });

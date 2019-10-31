@@ -1,5 +1,6 @@
 import program from 'commander';
 import compile from './compiler';
+import { makeOptions } from './options';
 import fs from 'fs';
 
 program
@@ -10,7 +11,12 @@ program
     .parse(process.argv);
 
 const inputFile = program.args[0];
-const result = compile(inputFile);
+const options = makeOptions({
+    input: inputFile,
+    out: program.out,
+    optimizeForSize: program.optimizeForSize
+});
+const result = compile(options);
 if (!program.out || program.out === '-') {
     console.log(result);
 } else {
