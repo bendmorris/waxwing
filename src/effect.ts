@@ -1,33 +1,30 @@
 import { Value } from './value';
 
 export const enum EffectType {
-    AddConstraint,
-    SetValue,
     Io,
     Define,
-    Delete,
     SetOffset,
     DeleteOffset
 }
 
-export class DefineEffect {
-    kind: EffectType = EffectType.Define;
-    name: string;
-    value: Value;
-
-    constructor(name: string, value: Value) {
-        this.name = name;
-        this.value = value;
-    }
+export interface IoEffect {
+    kind: EffectType.Io,
 }
 
-export class DeleteEffect {
-    kind: EffectType = EffectType.Delete;
-    name: string;
+export const ioEffect: IoEffect = { kind: EffectType.Io };
 
-    constructor(name: string) {
-        this.name = name;
-    }
+export interface DefineEffect {
+    kind: EffectType.Define,
+    name: string,
+    value: Value,
 }
 
-export type Effect = DefineEffect | DeleteEffect;
+export function createDefineEffect(name: string, value: Value): DefineEffect {
+    return {
+        kind: EffectType.Define,
+        name,
+        value
+    };
+}
+
+export type Effect = IoEffect | DefineEffect;

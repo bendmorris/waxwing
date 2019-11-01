@@ -1,39 +1,38 @@
 import * as babel from '@babel/core';
 import babelTraverse from '@babel/traverse';
 import * as babelTypes from '@babel/types';
-import { Ast, addEffect } from '../ast';
-import { DefineEffect} from '../effect';
+import { Ast, addEnterEffect, addExitEffect } from '../ast';
+import { createDefineEffect } from '../effect';
 import { Value, ValueType } from '../value';
 import { knownValue } from './utils';
 
-function findDeclarationsInBody(path: Ast, body: babelTypes.Statement[]) {
+function findEffectsInBody(path: Ast, body: babelTypes.Statement[]) {
     for (const child of body) {
         if (babel.types.isVariableDeclaration(child)) {
             const bindingType = child.kind;
             for (const declaration of child.declarations) {
                 if (babel.types.isIdentifier(declaration.id)) {
-                    const childAst = child as Ast;
                     let initializer: Value;
                     if (declaration.init) {
-                        const known = knownValue(undefined, declaration.init as Ast);
-                        initializer = known ? { kind: ValueType.Concrete, value: known } : { kind: ValueType.Abstract, ast: declaration.init as Ast };
+                        const known = knownValue(undefined, declaration.init);
+                        initializer = known || { kind: ValueType.Abstract, ast: declaration.init };
                     } else {
                         initializer = { kind: ValueType.Concrete, value: undefined };
                     }
                     if (bindingType === "var") {
                         // hoist var declaration
-                        addEffect(path, new DefineEffect(declaration.id.name, { kind: ValueType.Concrete, value: undefined }));
-                        addEffect(childAst, new DefineEffect(declaration.id.name, initializer));
+                        addEnterEffect(path, createDefineEffect(declaration.id.name, { kind: ValueType.Concrete, value: undefined }));
+                        addExitEffect(child, createDefineEffect(declaration.id.name, initializer));
                     } else {
-                        addEffect(childAst, new DefineEffect(declaration.id.name, initializer));
+                        addExitEffect(child, createDefineEffect(declaration.id.name, initializer));
                     }
                 }
             }
         } else if (babel.types.isFunctionDeclaration(child)) {
             // hoist function declaration
-            addEffect(path, new DefineEffect(child.id.name, {
+            addEnterEffect(path, createDefineEffect(child.id.name, {
                 kind: ValueType.Function,
-                body: child as Ast,
+                body: child,
                 isArrowFunction: false
             }));
         }
@@ -47,7 +46,7 @@ function findDeclarationsInBody(path: Ast, body: babelTypes.Statement[]) {
  * @param context
  * @param ast
  */
-export default function findDeclarations(ast: Ast) {
+export default function findEffects(ast: Ast) {
     // Annotate the AST with scopes here, containing bindings for arguments,
     // functions and variables that are defined within the scope.
     // Blocks and functions have a scope containing their vars/arguments;
@@ -55,16 +54,30 @@ export default function findDeclarations(ast: Ast) {
     // declarations, which should apply to following statements only.
     babelTraverse(ast, {
         Program(path) {
-            findDeclarationsInBody(path.node as Ast, path.node.body);
+            findEffectsInBody(path.node, path.node.body);
         },
         FunctionDeclaration(path) {
-            findDeclarationsInBody(path.node as Ast, path.node.body.body);
+            findEffectsInBody(path.node, path.node.body.body);
         },
         BlockStatement(path) {
-            findDeclarationsInBody(path.node as Ast, path.node.body);
+            findEffectsInBody(path.node, path.node.body);
         },
         FunctionExpression(path) {
-            findDeclarationsInBody(path.node as Ast, path.node.body.body);
+            findEffectsInBody(path.node, path.node.body.body);
         },
+        AssignmentExpression(path) {
+            if (babelTypes.isIdentifier(path.node.left)) {
+                let right;
+                if (path.node.operator === '=') {
+                    right = path.node.left;
+                } else {
+                    const operator = path.node.operator.substring(0, path.node.operator.length - 1);
+                    right = babelTypes.binaryExpression(operator as any, path.node.left, path.node.right);
+                }
+                if (right) {
+                    addExitEffect(path.node, createDefineEffect(path.node.left.name, { kind: ValueType.Abstract, ast: right }));
+                }
+            }
+        }
     });
 }

@@ -3,6 +3,15 @@ import { Ast } from '../ast';
 import { Value, ValueType } from '../value';
 import { ExecutionContext } from './context';
 
+export function evalValue(ctx: ExecutionContext, value: Value): Value {
+    switch (value.kind) {
+        case ValueType.Concrete: return value;
+        case ValueType.Abstract:
+            // TODO: this one will be tricky...
+    }
+    return value;
+}
+
 export function knownValue(ctx: ExecutionContext, ast: Ast): Value | undefined {
     switch (ast.type) {
         case "StringLiteral":
@@ -21,19 +30,31 @@ export function knownValue(ctx: ExecutionContext, ast: Ast): Value | undefined {
     return undefined;
 }
 
+export function valueToNode(value: Value): Ast | undefined {
+    switch (value.kind) {
+        case ValueType.Concrete:
+            return anyToNode(value.value);
+        case ValueType.Abstract:
+            return value.ast;
+        case ValueType.Function:
+            // TODO
+            return undefined;
+    }
+}
+
 export function anyToNode(value: any): Ast | undefined {
     switch (typeof value) {
         case "string":
-            return babelTypes.stringLiteral(value) as Ast;
+            return babelTypes.stringLiteral(value);
         case "number":
-            return babelTypes.numericLiteral(value) as Ast;
+            return babelTypes.numericLiteral(value);
         case "boolean":
-            return babelTypes.booleanLiteral(value) as Ast;
+            return babelTypes.booleanLiteral(value);
         case "undefined":
-            return babelTypes.identifier('undefined') as Ast;
+            return babelTypes.identifier('undefined');
         case "object":
             if (value === null) {
-                return babelTypes.nullLiteral() as Ast;
+                return babelTypes.nullLiteral();
             }
             break;
     }

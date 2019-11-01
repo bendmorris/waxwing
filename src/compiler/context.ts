@@ -2,7 +2,7 @@ import { Ast } from '../ast';
 import Scope from '../scope';
 import { Options } from '../options';
 import { Value } from '../value';
-import findDeclarations from './findDeclarations';
+import findEffects from './findEffects';
 import localOptimizations from './localOptimizations';
 
 export class CompileContext {
@@ -33,7 +33,7 @@ export class ExecutionContext {
     }
 
     compile(ast: Ast): Ast {
-        findDeclarations(ast);
+        findEffects(ast);
         localOptimizations(this, ast);
         return ast;
     }

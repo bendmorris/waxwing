@@ -9,5 +9,5 @@ export function parseFile(path: string): Ast {
 }
 
 export function parse(code: string, options: babelParser.ParserOptions): Ast {
-    return babelParser.parse(code, options) as Ast;
+    return babelParser.parse(code, options);
 }

@@ -1,15 +1,22 @@
 import { Effect } from './effect';
-import Scope from './scope';
 import * as babel from '@babel/core';
 
 interface AstData {
-    effects: Effect[],
+    enterEffects: Effect[],
+    exitEffects: Effect[],
 }
 
-export type Ast = babel.Node & AstData;
-export function addEffect(ast: Ast, effect: Effect) {
-    if (!ast.effects) {
-        ast.effects = [];
+export type Ast = babel.Node & Partial<AstData>;
+export function addEnterEffect(ast: Ast, effect: Effect) {
+    if (!ast.enterEffects) {
+        ast.enterEffects = [];
     }
-    ast.effects.push(effect);
+    ast.enterEffects.push(effect);
+}
+
+export function addExitEffect(ast: Ast, effect: Effect) {
+    if (!ast.exitEffects) {
+        ast.exitEffects = [];
+    }
+    ast.exitEffects.push(effect);
 }
