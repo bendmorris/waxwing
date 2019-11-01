@@ -1,6 +1,6 @@
 import * as babelTypes from '@babel/types';
 import { Ast } from '../ast';
-import { Value, ValueType } from '../value';
+import { Value, ValueType, concreteValue } from '../value';
 import { ExecutionContext } from './context';
 
 export function evalValue(ctx: ExecutionContext, value: Value): Value {
@@ -17,12 +17,12 @@ export function knownValue(ctx: ExecutionContext, ast: Ast): Value | undefined {
         case "StringLiteral":
         case "NumericLiteral":
         case "BooleanLiteral":
-            return { kind: ValueType.Concrete, value: ast.value };
+            return concreteValue(ast.value);
         case "NullLiteral":
-            return { kind: ValueType.Concrete, value: null };
+            return concreteValue(null);
         case "RegExpLiteral":
             // TODO
-            return { kind: ValueType.Concrete, value: new RegExp(ast.pattern) };
+            return concreteValue(new RegExp(ast.pattern));
 
         case "Identifier":
             return ctx ? ctx.resolve(ast.name).value : undefined;

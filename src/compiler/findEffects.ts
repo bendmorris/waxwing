@@ -3,7 +3,7 @@ import babelTraverse from '@babel/traverse';
 import * as babelTypes from '@babel/types';
 import { Ast, addEnterEffect, addExitEffect } from '../ast';
 import { createDefineEffect } from '../effect';
-import { Value, ValueType } from '../value';
+import { Value, concreteValue, abstractValue, functionValue } from '../value';
 import { knownValue } from './utils';
 
 function findEffectsInBody(path: Ast, body: babelTypes.Statement[]) {
@@ -15,13 +15,13 @@ function findEffectsInBody(path: Ast, body: babelTypes.Statement[]) {
                     let initializer: Value;
                     if (declaration.init) {
                         const known = knownValue(undefined, declaration.init);
-                        initializer = known || { kind: ValueType.Abstract, ast: declaration.init };
+                        initializer = known || abstractValue(declaration.init);
                     } else {
-                        initializer = { kind: ValueType.Concrete, value: undefined };
+                        initializer = concreteValue(undefined);
                     }
                     if (bindingType === "var") {
                         // hoist var declaration
-                        addEnterEffect(path, createDefineEffect(declaration.id.name, { kind: ValueType.Concrete, value: undefined }));
+                        addEnterEffect(path, createDefineEffect(declaration.id.name, concreteValue(undefined)));
                         addExitEffect(child, createDefineEffect(declaration.id.name, initializer));
                     } else {
                         addExitEffect(child, createDefineEffect(declaration.id.name, initializer));
@@ -30,11 +30,7 @@ function findEffectsInBody(path: Ast, body: babelTypes.Statement[]) {
             }
         } else if (babel.types.isFunctionDeclaration(child)) {
             // hoist function declaration
-            addEnterEffect(path, createDefineEffect(child.id.name, {
-                kind: ValueType.Function,
-                body: child,
-                isArrowFunction: false
-            }));
+            addEnterEffect(path, createDefineEffect(child.id.name, functionValue(child, false)));
         }
     }
 }
@@ -75,7 +71,7 @@ export default function findEffects(ast: Ast) {
                     right = babelTypes.binaryExpression(operator as any, path.node.left, path.node.right);
                 }
                 if (right) {
-                    addExitEffect(path.node, createDefineEffect(path.node.left.name, { kind: ValueType.Abstract, ast: right }));
+                    addExitEffect(path.node, createDefineEffect(path.node.left.name, abstractValue(right)));
                 }
             }
         }

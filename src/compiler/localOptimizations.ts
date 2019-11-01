@@ -3,7 +3,7 @@ import babelTraverse from '@babel/traverse';
 import { Ast } from '../ast';
 import { Effect, EffectType } from '../effect';
 import { Scope } from '../scope';
-import { ValueType } from '../value';
+import { ValueType, abstractValue, unknownValue } from '../value';
 import { ExecutionContext } from './context';
 import { knownValue, anyToNode, evalValue, valueToNode } from './utils';
 
@@ -57,7 +57,13 @@ function applyEffects(ctx: ExecutionContext, effects: Effect[]) {
         switch (effect.kind) {
             case EffectType.Define:
                 const value = evalValue(ctx, effect.value);
-                currentScope.createRef(effect.name, value);
+                switch (value.kind) {
+                    case ValueType.Concrete:
+                        currentScope.createRef(effect.name, value);
+                        break;
+                    default:
+                        currentScope.createRef(effect.name, unknownValue());
+                }
         }
     }
 }
@@ -99,7 +105,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     const functionScope = new Scope();
                     for (const arg of path.node.params) {
                         if (babelTypes.isIdentifier(arg)) {
-                            functionScope.createRef(arg.name, { kind: ValueType.Abstract, ast: arg as Ast });
+                            functionScope.createRef(arg.name, abstractValue(arg));
                         }
                     }
                     ctx.scopes.push(functionScope);
@@ -119,6 +125,15 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     const leavingScope = ctx.scopes.pop();
                     if (babelTypes.isBlockStatement(path.node)) {
                         gcRefs(path.node, leavingScope);
+                        const parent = path.parent;
+                        if (!(babelTypes.isFunctionDeclaration(parent) || babelTypes.isFunctionExpression(parent))) {
+                            // clean up unnecessary blocks
+                            if (path.node.body.length === 0) {
+                                path.remove();
+                            } else if (path.node.body.length === 1) {
+                                path.replaceWith(path.node.body[0]);
+                            }
+                        }
                     }
                     break;
 
