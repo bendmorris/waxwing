@@ -1,5 +1,5 @@
 import { Ast } from '../ast';
-import Scope from '../scope';
+import { Binding, Scope } from '../scope';
 import { Options } from '../options';
 import { Value } from '../value';
 import findEffects from './findEffects';
@@ -28,7 +28,7 @@ export class ExecutionContext {
         this.scopes = scopes;
     }
 
-    resolve(name: string): Value | undefined {
+    resolve(name: string): Binding | undefined {
         return Scope.resolve(name, this.scopes);
     }
 

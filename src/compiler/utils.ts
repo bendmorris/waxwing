@@ -25,7 +25,7 @@ export function knownValue(ctx: ExecutionContext, ast: Ast): Value | undefined {
             return { kind: ValueType.Concrete, value: new RegExp(ast.pattern) };
 
         case "Identifier":
-            return ctx ? ctx.resolve(ast.name) : undefined;
+            return ctx ? ctx.resolve(ast.name).value : undefined;
     }
     return undefined;
 }

@@ -2,7 +2,7 @@ import * as babelTypes from '@babel/types';
 import babelTraverse from '@babel/traverse';
 import { Ast } from '../ast';
 import { Effect, EffectType } from '../effect';
-import Scope from '../scope';
+import { Scope } from '../scope';
 import { ValueType } from '../value';
 import { ExecutionContext } from './context';
 import { knownValue, anyToNode, evalValue, valueToNode } from './utils';
@@ -57,7 +57,32 @@ function applyEffects(ctx: ExecutionContext, effects: Effect[]) {
         switch (effect.kind) {
             case EffectType.Define:
                 const value = evalValue(ctx, effect.value);
-                currentScope.set(effect.name, value);
+                currentScope.createRef(effect.name, value);
+        }
+    }
+}
+
+function gcRefs(node: babelTypes.BlockStatement, scope: Scope) {
+    for (let i = 0; i < node.body.length; ++i) {
+        const statement = node.body[i];
+        if (babelTypes.isVariableDeclaration(statement)) {
+            for (let j = 0; j < statement.declarations.length; ++j) {
+                const decl = statement.declarations[j];
+                if (babelTypes.isIdentifier(decl.id)) {
+                    const id = decl.id.name;
+                    if (scope.has(id) && scope.get(id).refCount <= 0) {
+                        statement.declarations.splice(j--, 1);
+                    }
+                }
+            }
+            if (statement.declarations.length === 0) {
+                node.body.splice(i--, 1);
+            }
+        } else if (babelTypes.isFunctionDeclaration(statement)) {
+            const id = statement.id.name
+            if (scope.has(id) && scope.get(id).refCount <= 0) {
+                node.body.splice(i--, 1);
+            }
         }
     }
 }
@@ -74,7 +99,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     const functionScope = new Scope();
                     for (const arg of path.node.params) {
                         if (babelTypes.isIdentifier(arg)) {
-                            functionScope.set(arg.name, { kind: ValueType.Abstract, ast: arg as Ast });
+                            functionScope.createRef(arg.name, { kind: ValueType.Abstract, ast: arg as Ast });
                         }
                     }
                     ctx.scopes.push(functionScope);
@@ -91,7 +116,10 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                 case "BlockStatement":
                 case "FunctionDeclaration":
                 case "FunctionExpression":
-                    ctx.scopes.pop();
+                    const leavingScope = ctx.scopes.pop();
+                    if (babelTypes.isBlockStatement(path.node)) {
+                        gcRefs(path.node, leavingScope);
+                    }
                     break;
 
                 case "BinaryExpression":
@@ -126,18 +154,23 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
 
                 case "Identifier":
                     if (!(babelTypes.isAssignmentExpression(path.parent) ||
-                            babelTypes.isVariableDeclarator(path.parent))) {
+                            babelTypes.isVariableDeclarator(path.parent) ||
+                            babelTypes.isFunctionDeclaration(path.parent))) {
                         const result = ctx.resolve(path.node.name);
                         if (result) {
-                            const resultNode = valueToNode(result);
+                            const resultNode = valueToNode(result.value);
                             if (resultNode) {
                                 path.replaceWith(resultNode);
+                            } else {
+                                result.addRef();
                             }
                         }
                     }
             }
 
-            applyEffects(ctx, (path.node as Ast).exitEffects);
+            if (path.node) {
+                applyEffects(ctx, (path.node as Ast).exitEffects);
+            }
         }
     });
 }
