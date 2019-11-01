@@ -126,7 +126,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     if (babelTypes.isBlockStatement(path.node)) {
                         gcRefs(path.node, leavingScope);
                         const parent = path.parent;
-                        if (!(babelTypes.isFunctionDeclaration(parent) || babelTypes.isFunctionExpression(parent))) {
+                        if (babelTypes.isBlockStatement(parent) || babelTypes.isProgram(parent)) {
                             // clean up unnecessary blocks
                             if (path.node.body.length === 0) {
                                 path.remove();
@@ -168,9 +168,9 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     break;
 
                 case "Identifier":
-                    if (!(babelTypes.isAssignmentExpression(path.parent) ||
-                            babelTypes.isVariableDeclarator(path.parent) ||
-                            babelTypes.isFunctionDeclaration(path.parent))) {
+                    if (babelTypes.isExpression(path.parent) &&
+                            !(babelTypes.isAssignmentExpression(path.parent) &&
+                            path.parent.left == path.node)) {
                         const result = ctx.resolve(path.node.name);
                         if (result) {
                             const resultNode = valueToNode(result.value);
