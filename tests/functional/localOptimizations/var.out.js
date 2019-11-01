@@ -1,4 +1,1 @@
-{
-  console.log(undefined);
-  console.log(1);
-}
+{console.log(undefined);console.log(1);}

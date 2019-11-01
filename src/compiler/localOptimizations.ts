@@ -5,6 +5,7 @@ import { Effect, EffectType } from '../effect';
 import { Scope } from '../scope';
 import { ValueType, abstractValue, unknownValue } from '../value';
 import { ExecutionContext } from './context';
+import { eliminateDeadCodeFromBlock } from './dce';
 import { evaluate } from './evaluate';
 import { knownValue, anyToNode, evalValue, valueToNode, sameLocation } from './utils';
 
@@ -20,40 +21,10 @@ function applyEffects(ctx: ExecutionContext, ast: Ast, effects: Effect[]) {
                         currentScope.createRef(effect.name, value);
                         break;
                     default:
-                        ctx.debugLog(ast, "I don't know the value of " + effect.name);
+                        ctx.debugLog(ast, "I don't know the value of " + effect.name + ": " + JSON.stringify(value));
                         currentScope.createRef(effect.name, unknownValue());
                 }
         }
-    }
-}
-
-function gcRefs(node: babelTypes.BlockStatement, scope: Scope) {
-    for (let i = 0; i < node.body.length; ++i) {
-        const statement = node.body[i];
-        if (babelTypes.isVariableDeclaration(statement)) {
-            for (let j = 0; j < statement.declarations.length; ++j) {
-                const decl = statement.declarations[j];
-                if (babelTypes.isIdentifier(decl.id)) {
-                    const id = decl.id.name;
-                    if (scope.has(id) && scope.get(id).refCount <= 0) {
-                        statement.declarations.splice(j--, 1);
-                    }
-                }
-            }
-            if (statement.declarations.length === 0) {
-                node.body.splice(i--, 1);
-            }
-        } else if (babelTypes.isFunctionDeclaration(statement)) {
-            const id = statement.id.name;
-            if (scope.has(id) && scope.get(id).refCount <= 0) {
-                node.body.splice(i--, 1);
-            }
-        }/* else if (babelTypes.isAssignmentExpression(statement) && babelTypes.isIdentifier(statement.left)) {
-            const id = statement.left.name;
-            if (scope.has(id) && scope.get(id).refCount <= 0) {
-                node.body.splice(i--, 1);
-            }
-        }*/
     }
 }
 
@@ -92,7 +63,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     ctx.debugLog(path.node, "leaving scope");
                     const leavingScope = ctx.scopes.pop();
                     if (babelTypes.isBlockStatement(path.node)) {
-                        gcRefs(path.node, leavingScope);
+                        eliminateDeadCodeFromBlock(ctx, path as babel.NodePath<babelTypes.BlockStatement>, leavingScope);
                         const parent = path.parent;
                         if (babelTypes.isBlockStatement(parent) || babelTypes.isProgram(parent)) {
                             // clean up unnecessary blocks

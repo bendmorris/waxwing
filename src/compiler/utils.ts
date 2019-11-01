@@ -10,13 +10,11 @@ export function evalValue(ctx: ExecutionContext, value: Value): Value {
             return value;
         case ValueType.Abstract: {
             const evaluated = evaluate(ctx, value.ast);
-            if (evaluated) {
-                const known = knownValue(ctx, evaluated);
-                if (known) {
-                    return known;
-                } else {
-                    return evalValue(ctx, abstractValue(evaluated));
-                }
+            const known = knownValue(ctx, evaluated || value.ast);
+            if (known) {
+                return known;
+            } else {
+                return evalValue(ctx, abstractValue(evaluated));
             }
         }
     }
