@@ -17,6 +17,16 @@ export class CompileContext {
         const topLevelContext = new ExecutionContext(this, [globalScope]);
         return topLevelContext.compile(ast);
     }
+
+    debugLog(...args) {
+        if (this.options.debug) {
+            if (typeof args[0] === 'object' && typeof args[0].loc === 'object') {
+                const loc = args[0].loc;
+                args[0] = `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column}:`;
+            }
+            console.warn(...args);
+        }
+    }
 }
 
 export class ExecutionContext {
@@ -36,5 +46,11 @@ export class ExecutionContext {
         findEffects(ast);
         localOptimizations(this, ast);
         return ast;
+    }
+
+    debugLog(...args) {
+        if (this.compileContext.options.debug) {
+            this.compileContext.debugLog(...args);
+        }
     }
 }

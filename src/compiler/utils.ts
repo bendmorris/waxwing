@@ -1,13 +1,24 @@
 import * as babelTypes from '@babel/types';
 import { Ast } from '../ast';
-import { Value, ValueType, concreteValue } from '../value';
+import { Value, ValueType, abstractValue, concreteValue } from '../value';
 import { ExecutionContext } from './context';
+import { evaluate } from './evaluate';
 
 export function evalValue(ctx: ExecutionContext, value: Value): Value {
     switch (value.kind) {
-        case ValueType.Concrete: return value;
-        case ValueType.Abstract:
-            // TODO: this one will be tricky...
+        case ValueType.Concrete:
+            return value;
+        case ValueType.Abstract: {
+            const evaluated = evaluate(ctx, value.ast);
+            if (evaluated) {
+                const known = knownValue(ctx, evaluated);
+                if (known) {
+                    return known;
+                } else {
+                    return evalValue(ctx, abstractValue(evaluated));
+                }
+            }
+        }
     }
     return value;
 }
@@ -65,4 +76,8 @@ export function anyToNode(value: any): Ast | undefined {
             break;
     }
     return undefined;
+}
+
+export function sameLocation(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
 }

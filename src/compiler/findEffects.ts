@@ -65,7 +65,7 @@ export default function findEffects(ast: Ast) {
             if (babelTypes.isIdentifier(path.node.left)) {
                 let right;
                 if (path.node.operator === '=') {
-                    right = path.node.left;
+                    right = path.node.right;
                 } else {
                     const operator = path.node.operator.substring(0, path.node.operator.length - 1);
                     right = babelTypes.binaryExpression(operator as any, path.node.left, path.node.right);

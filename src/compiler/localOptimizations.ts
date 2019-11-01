@@ -5,53 +5,10 @@ import { Effect, EffectType } from '../effect';
 import { Scope } from '../scope';
 import { ValueType, abstractValue, unknownValue } from '../value';
 import { ExecutionContext } from './context';
-import { knownValue, anyToNode, evalValue, valueToNode } from './utils';
+import { evaluate } from './evaluate';
+import { knownValue, anyToNode, evalValue, valueToNode, sameLocation } from './utils';
 
-
-const binOps = {
-    "*": (a, b) => a * b,
-    "/": (a, b) => a / b,
-    "%": (a, b) => a % b,
-    "+": (a, b) => a + b,
-    "-": (a, b) => a - b,
-    "&": (a, b) => a & b,
-    "|": (a, b) => a | b,
-    "^": (a, b) => a ^ b,
-    "&&": (a, b) => a && b,
-    "||": (a, b) => a || b,
-    "<<": (a, b) => a << b,
-    ">>": (a, b) => a >> b,
-    ">>>": (a, b) => a >>> b,
-    "<": (a, b) => a < b,
-    ">": (a, b) => a > b,
-    "<=": (a, b) => a <= b,
-    ">=": (a, b) => a >= b,
-    "in": (a, b) => a in b,
-    "==": (a, b) => a == b,
-    "!=": (a, b) => a != b,
-    "===": (a, b) => a === b,
-    "!==": (a, b) => a !== b,
-}
-
-const unOps = {
-    "!": (a) => !a,
-    "~": (a) => ~a,
-    "+": (a) => +a,
-    // ignore -, used with literals and generally not worth simplifying
-}
-
-function optimizeBinop(ctx: ExecutionContext, ast: Ast, path) {
-    let left, right;
-    if (binOps[path.node.operator] && (left = knownValue(ctx, path.node.left as Ast)) && (right = knownValue(ctx, path.node.right as Ast)) && left.kind === ValueType.Concrete && right.kind === ValueType.Concrete) {
-        const result = binOps[path.node.operator](left.value, right.value);
-        const resultValue = anyToNode(result);
-        if (resultValue) {
-            path.replaceWith(resultValue);
-        }
-    }
-}
-
-function applyEffects(ctx: ExecutionContext, effects: Effect[]) {
+function applyEffects(ctx: ExecutionContext, ast: Ast, effects: Effect[]) {
     const currentScope = ctx.scopes[ctx.scopes.length - 1];
     for (const effect of effects || []) {
         switch (effect.kind) {
@@ -59,9 +16,11 @@ function applyEffects(ctx: ExecutionContext, effects: Effect[]) {
                 const value = evalValue(ctx, effect.value);
                 switch (value.kind) {
                     case ValueType.Concrete:
+                        ctx.debugLog(ast, "updated the value of " + effect.name + " to " + JSON.stringify(value.value));
                         currentScope.createRef(effect.name, value);
                         break;
                     default:
+                        ctx.debugLog(ast, "I don't know the value of " + effect.name);
                         currentScope.createRef(effect.name, unknownValue());
                 }
         }
@@ -85,11 +44,16 @@ function gcRefs(node: babelTypes.BlockStatement, scope: Scope) {
                 node.body.splice(i--, 1);
             }
         } else if (babelTypes.isFunctionDeclaration(statement)) {
-            const id = statement.id.name
+            const id = statement.id.name;
             if (scope.has(id) && scope.get(id).refCount <= 0) {
                 node.body.splice(i--, 1);
             }
-        }
+        }/* else if (babelTypes.isAssignmentExpression(statement) && babelTypes.isIdentifier(statement.left)) {
+            const id = statement.left.name;
+            if (scope.has(id) && scope.get(id).refCount <= 0) {
+                node.body.splice(i--, 1);
+            }
+        }*/
     }
 }
 
@@ -101,6 +65,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
             switch (path.node.type) {
                 case "FunctionDeclaration":
                 case "FunctionExpression":
+                    ctx.debugLog(path.node, "starting function scope");
                     // add a new scope and populate with abstract args
                     const functionScope = new Scope();
                     for (const arg of path.node.params) {
@@ -111,17 +76,20 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     ctx.scopes.push(functionScope);
                     break;
                 case "BlockStatement":
+                    ctx.debugLog(path.node, "starting block scope");
                     ctx.scopes.push(new Scope());
             }
 
-            applyEffects(ctx, (path.node as Ast).enterEffects);
+            applyEffects(ctx, path.node, (path.node as Ast).enterEffects);
         },
 
         exit(path) {
+            ctx.debugLog(path.node, "exiting: " + path);
             switch (path.node.type) {
                 case "BlockStatement":
                 case "FunctionDeclaration":
                 case "FunctionExpression":
+                    ctx.debugLog(path.node, "leaving scope");
                     const leavingScope = ctx.scopes.pop();
                     if (babelTypes.isBlockStatement(path.node)) {
                         gcRefs(path.node, leavingScope);
@@ -129,62 +97,40 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                         if (babelTypes.isBlockStatement(parent) || babelTypes.isProgram(parent)) {
                             // clean up unnecessary blocks
                             if (path.node.body.length === 0) {
+                                ctx.debugLog(path.node, "removing empty block statement");
                                 path.remove();
                             } else if (path.node.body.length === 1) {
+                                ctx.debugLog(path.node, "collapsing block statement with one member");
                                 path.replaceWith(path.node.body[0]);
                             }
                         }
                     }
                     break;
 
-                case "BinaryExpression":
-                case "LogicalExpression":
-                    optimizeBinop(ctx, ast, path);
-                    break;
-
-                case "UnaryExpression":
-                    let operand;
-                    if (unOps[path.node.operator] && (operand = knownValue(ctx, path.node.argument as Ast)) && operand.kind === ValueType.Concrete) {
-                        const result = unOps[path.node.operator](operand.value);
-                        const resultValue = anyToNode(result);
-                        if (resultValue) {
-                            path.replaceWith(resultValue);
-                        }
+                default: {
+                    let shouldEvaluate = true;
+                    switch (path.node.type) {
+                        case "Identifier":
+                            shouldEvaluate = (
+                                babelTypes.isExpression(path.parent) &&
+                                !(babelTypes.isAssignmentExpression(path.parent) && sameLocation(path.node.loc, path.parent.left.loc))
+                            );
+                            ctx.debugLog(path.node, "this is an identifier, and I decided " + (shouldEvaluate ? "TO evaluate" : "NOT TO evaluate"));
+                            break;
                     }
-                    break;
-
-                case "ConditionalExpression":
-                case "IfStatement":
-                    let test;
-                    if ((test = knownValue(ctx, path.node.test as Ast)) && test.kind === ValueType.Concrete) {
-                        if (test.value) {
-                            path.replaceWith(path.node.consequent);
-                        } else if (path.node.alternate !== null) {
-                            path.replaceWith(path.node.alternate);
-                        } else {
+                    if (shouldEvaluate) {
+                        const evaluated = evaluate(ctx, path.node);
+                        if (evaluated) {
+                            path.replaceWith(evaluated);
+                        } else if (evaluated === null) {
                             path.remove();
                         }
                     }
-                    break;
-
-                case "Identifier":
-                    if (babelTypes.isExpression(path.parent) &&
-                            !(babelTypes.isAssignmentExpression(path.parent) &&
-                            path.parent.left == path.node)) {
-                        const result = ctx.resolve(path.node.name);
-                        if (result) {
-                            const resultNode = valueToNode(result.value);
-                            if (resultNode) {
-                                path.replaceWith(resultNode);
-                            } else {
-                                result.addRef();
-                            }
-                        }
-                    }
+                }
             }
 
             if (path.node) {
-                applyEffects(ctx, (path.node as Ast).exitEffects);
+                applyEffects(ctx, path.node, (path.node as Ast).exitEffects);
             }
         }
     });
