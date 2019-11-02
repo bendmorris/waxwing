@@ -1,3 +1,5 @@
+![Waxwing logo](https://raw.githubusercontent.com/bendmorris/waxwing/master/assets/waxwing.png)
+
 Waxwing is an optimizing JavaScript compiler. This is a work in progress!
 
 ## Install
