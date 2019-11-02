@@ -1,12 +1,7 @@
 import * as babelTypes from '@babel/types';
 import babelTraverse from '@babel/traverse';
-import { Ast } from '../ast';
-import { Effect, EffectType } from '../effect';
 import { Scope } from '../scope';
-import { ValueType, abstractValue, unknownValue } from '../value';
 import { ExecutionContext } from './context';
-import { evaluate } from './evaluate';
-import { knownValue, anyToNode, evalValue, valueToNode, sameLocation } from './utils';
 
 export function eliminateDeadCodeFromBlock(ctx: ExecutionContext, path: babel.NodePath<babelTypes.BlockStatement>, scope: Scope) {
     const node = path.node;

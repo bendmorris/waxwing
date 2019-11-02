@@ -2,10 +2,9 @@ import * as babelTypes from '@babel/types';
 import babelTraverse from '@babel/traverse';
 import { Ast } from '../ast';
 import { Effect, EffectType } from '../effect';
-import { Scope } from '../scope';
-import { ValueType, abstractValue, unknownValue } from '../value';
+import { Value, ValueType, FunctionValue, abstractValue, concreteValue, functionValue } from '../value';
 import { ExecutionContext } from './context';
-import { knownValue, anyToNode, evalValue, valueToNode } from './utils';
+import { anyToNode, valueToNode } from './utils';
 
 const binOps = {
     "*": (a, b) => a * b,
@@ -95,7 +94,69 @@ export function evaluate(ctx: ExecutionContext, ast: Ast) : Ast | null | undefin
                     result.addRef();
                 }
             }
+            break;
+        }
+        case "CallExpression": {
+            const callee = knownValue(ctx, ast.callee);
+            if (callee && callee.kind === ValueType.Function) {
+                ctx.debugLog(ast, "found a call expression of a known function");
+                const returnValue = tryInline(ctx, callee);
+                if (returnValue) {
+                    ctx.debugLog(ast, "call is inlinable");
+                    return valueToNode(returnValue);
+                }
+            }
+            break;
         }
     }
+    return undefined;
+}
+
+export function evalValue(ctx: ExecutionContext, value: Value): Value {
+    switch (value.kind) {
+        case ValueType.Concrete:
+            return value;
+        case ValueType.Abstract: {
+            const evaluated = evaluate(ctx, value.ast);
+            const known = knownValue(ctx, evaluated || value.ast);
+            if (known) {
+                return known;
+            } else if (evaluated) {
+                return evalValue(ctx, abstractValue(evaluated));
+            }
+        }
+    }
+    return value;
+}
+
+export function knownValue(ctx: ExecutionContext, ast: Ast): Value | undefined {
+    switch (ast.type) {
+        case "StringLiteral":
+        case "NumericLiteral":
+        case "BooleanLiteral":
+            return concreteValue(ast.value);
+        case "NullLiteral":
+            return concreteValue(null);
+        case "RegExpLiteral":
+            // TODO
+            return concreteValue(new RegExp(ast.pattern));
+        case "FunctionExpression":
+            return functionValue(ast, false);
+        case "ArrowFunctionExpression":
+            return functionValue(ast, true);
+
+        case "Identifier":
+            if (ctx) {
+                const resolved = ctx.resolve(ast.name);
+                if (resolved) {
+                    return resolved.value;
+                }
+            }
+            return undefined;
+    }
+    return undefined;
+}
+
+export function tryInline(ctx: ExecutionContext, value: FunctionValue): Value | undefined {
     return undefined;
 }

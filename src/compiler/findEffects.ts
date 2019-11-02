@@ -3,8 +3,8 @@ import babelTraverse from '@babel/traverse';
 import * as babelTypes from '@babel/types';
 import { Ast, addEnterEffect, addExitEffect } from '../ast';
 import { createDefineEffect } from '../effect';
+import { knownValue } from './evaluate';
 import { Value, concreteValue, abstractValue, functionValue } from '../value';
-import { knownValue } from './utils';
 
 function findEffectsInBody(path: Ast, body: babelTypes.Statement[]) {
     for (const child of body) {

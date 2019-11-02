@@ -6,8 +6,8 @@ import { Scope } from '../scope';
 import { ValueType, abstractValue, unknownValue } from '../value';
 import { ExecutionContext } from './context';
 import { eliminateDeadCodeFromBlock } from './dce';
-import { evaluate } from './evaluate';
-import { knownValue, anyToNode, evalValue, valueToNode, sameLocation } from './utils';
+import { evaluate, evalValue } from './evaluate';
+import { sameLocation } from './utils';
 
 function applyEffects(ctx: ExecutionContext, ast: Ast, effects: Effect[]) {
     const currentScope = ctx.scopes[ctx.scopes.length - 1];
@@ -86,14 +86,15 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                                 babelTypes.isExpression(path.parent) &&
                                 !(babelTypes.isAssignmentExpression(path.parent) && sameLocation(path.node.loc, path.parent.left.loc))
                             );
-                            ctx.debugLog(path.node, "this is an identifier, and I decided " + (shouldEvaluate ? "TO evaluate" : "NOT TO evaluate"));
                             break;
                     }
                     if (shouldEvaluate) {
                         const evaluated = evaluate(ctx, path.node);
                         if (evaluated) {
+                            ctx.debugLog(path.node, "evaluated and found a value to replace");
                             path.replaceWith(evaluated);
                         } else if (evaluated === null) {
+                            ctx.debugLog(path.node, "evaluated and can remove");
                             path.remove();
                         }
                     }
