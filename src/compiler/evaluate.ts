@@ -1,4 +1,4 @@
-import * as babelTypes from '@babel/types';
+import * as t from '@babel/types';
 import babelTraverse from '@babel/traverse';
 import { Ast } from '../ast';
 import { Effect, EffectType } from '../effect';

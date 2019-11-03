@@ -1,4 +1,4 @@
-import * as babelTypes from '@babel/types';
+import * as t from '@babel/types';
 import babelTraverse from '@babel/traverse';
 import { Ast } from '../ast';
 import { Effect, EffectType } from '../effect';
@@ -40,7 +40,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     // add a new scope and populate with abstract args
                     const functionScope = new Scope();
                     for (const arg of path.node.params) {
-                        if (babelTypes.isIdentifier(arg)) {
+                        if (t.isIdentifier(arg)) {
                             functionScope.createRef(arg.name, abstractValue(arg));
                         }
                     }
@@ -62,10 +62,10 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                 case "FunctionExpression":
                     ctx.debugLog(path.node, "leaving scope");
                     const leavingScope = ctx.scopes.pop();
-                    if (babelTypes.isBlockStatement(path.node)) {
-                        eliminateDeadCodeFromBlock(ctx, path as babel.NodePath<babelTypes.BlockStatement>, leavingScope);
+                    if (t.isBlockStatement(path.node)) {
+                        eliminateDeadCodeFromBlock(ctx, path.node, leavingScope);
                         const parent = path.parent;
-                        if (babelTypes.isBlockStatement(parent) || babelTypes.isProgram(parent)) {
+                        if (t.isBlockStatement(parent) || t.isProgram(parent)) {
                             // clean up unnecessary blocks
                             if (path.node.body.length === 0) {
                                 ctx.debugLog(path.node, "removing empty block statement");
@@ -83,8 +83,8 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
                     switch (path.node.type) {
                         case "Identifier":
                             shouldEvaluate = (
-                                babelTypes.isExpression(path.parent) &&
-                                !(babelTypes.isAssignmentExpression(path.parent) && sameLocation(path.node.loc, path.parent.left.loc))
+                                t.isExpression(path.parent) &&
+                                !(t.isAssignmentExpression(path.parent) && sameLocation(path.node.loc, path.parent.left.loc))
                             );
                             break;
                     }

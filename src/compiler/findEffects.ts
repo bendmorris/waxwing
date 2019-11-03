@@ -1,12 +1,12 @@
 import * as babel from '@babel/core';
 import babelTraverse from '@babel/traverse';
-import * as babelTypes from '@babel/types';
+import * as t from '@babel/types';
 import { Ast, addEnterEffect, addExitEffect } from '../ast';
 import { createDefineEffect } from '../effect';
 import { knownValue } from './evaluate';
 import { Value, concreteValue, abstractValue, functionValue } from '../value';
 
-function findEffectsInBody(path: Ast, body: babelTypes.Statement[]) {
+function findEffectsInBody(path: Ast, body: t.Statement[]) {
     for (const child of body) {
         if (babel.types.isVariableDeclaration(child)) {
             const bindingType = child.kind;
@@ -62,13 +62,13 @@ export default function findEffects(ast: Ast) {
             findEffectsInBody(path.node, path.node.body.body);
         },
         AssignmentExpression(path) {
-            if (babelTypes.isIdentifier(path.node.left)) {
+            if (t.isIdentifier(path.node.left)) {
                 let right;
                 if (path.node.operator === '=') {
                     right = path.node.right;
                 } else {
                     const operator = path.node.operator.substring(0, path.node.operator.length - 1);
-                    right = babelTypes.binaryExpression(operator as any, path.node.left, path.node.right);
+                    right = t.binaryExpression(operator as any, path.node.left, path.node.right);
                 }
                 if (right) {
                     addExitEffect(path.node, createDefineEffect(path.node.left.name, abstractValue(right)));

@@ -1,5 +1,6 @@
 import { Effect } from './effect';
 import * as babel from '@babel/core';
+import * as t from '@babel/types';
 
 interface AstData {
     enterEffects: Effect[],
@@ -7,6 +8,8 @@ interface AstData {
 }
 
 export type Ast = babel.Node & Partial<AstData>;
+export type ExpressionAst = t.Expression & Partial<AstData>;
+
 export function addEnterEffect(ast: Ast, effect: Effect) {
     if (!ast.enterEffects) {
         ast.enterEffects = [];

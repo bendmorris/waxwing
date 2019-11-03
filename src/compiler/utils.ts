@@ -1,4 +1,4 @@
-import * as babelTypes from '@babel/types';
+import * as t from '@babel/types';
 import { Ast } from '../ast';
 import { Value, ValueType } from '../value';
 
@@ -17,16 +17,16 @@ export function valueToNode(value: Value): Ast | undefined {
 export function anyToNode(value: any): Ast | undefined {
     switch (typeof value) {
         case "string":
-            return babelTypes.stringLiteral(value);
+            return t.stringLiteral(value);
         case "number":
-            return babelTypes.numericLiteral(value);
+            return t.numericLiteral(value);
         case "boolean":
-            return babelTypes.booleanLiteral(value);
+            return t.booleanLiteral(value);
         case "undefined":
-            return babelTypes.identifier('undefined');
+            return t.identifier('undefined');
         case "object":
             if (value === null) {
-                return babelTypes.nullLiteral();
+                return t.nullLiteral();
             }
             break;
     }
