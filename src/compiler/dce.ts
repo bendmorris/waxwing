@@ -65,6 +65,10 @@ export function eliminateDeadCodeFromBlock(ctx: ExecutionContext, node: t.BlockS
                 if (t.isIdentifier(decl.id)) {
                     const id = decl.id.name;
                     if (scope.has(id) && scope.get(id).refCount <= 0) {
+                        if (decl.init) {
+                            // eliminate the variable, but check the expression for side effects
+                            node.body.splice(i + 1, 0, t.expressionStatement(decl.init));
+                        }
                         statement.declarations.splice(j--, 1);
                     }
                 }
