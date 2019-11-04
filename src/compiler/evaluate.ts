@@ -35,17 +35,18 @@ const unOps = {
     "!": (a) => !a,
     "~": (a) => ~a,
     "+": (a) => +a,
-    // ignore -, used with literals and generally not worth simplifying
+    "-": (a) => -a,
 }
 
 /**
  * Used to try to partially evaluate an AST node.
+ *
  * Can return:
  *   - A new AST node if the node can be replaced.
  *   - `null` if the node can be discarded.
  *   - `undefined` if no evaluation was possible.
  */
-export function evaluate(ctx: ExecutionContext, ast: Ast) : Ast | null | undefined {
+export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefined {
     switch (ast.type) {
         case "BinaryExpression":
         case "LogicalExpression": {
@@ -61,7 +62,9 @@ export function evaluate(ctx: ExecutionContext, ast: Ast) : Ast | null | undefin
         }
         case "UnaryExpression": {
             let operand;
-            if (unOps[ast.operator] && (operand = knownValue(ctx, ast.argument as Ast)) && operand.kind === ValueType.Concrete) {
+            if (ast.operator == "-" && operand.type === 'NumericLiteral') {
+                // ignore
+            } else if (unOps[ast.operator] && (operand = knownValue(ctx, ast.argument as Ast)) && operand.kind === ValueType.Concrete) {
                 const result = unOps[ast.operator](operand.value);
                 const resultValue = anyToNode(result);
                 if (resultValue) {

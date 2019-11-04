@@ -3,6 +3,15 @@ import { Ast, ExpressionAst } from '../ast';
 import { Scope } from '../scope';
 import { ExecutionContext } from './context';
 
+/**
+ * Simplify an expression whose value is not needed. This should retain any
+ * function calls, assignments, etc. that may have side effects.
+ *
+ * Can return:
+ *   - A new AST node if the node can be replaced.
+ *   - `null` if the node can be discarded.
+ *   - `undefined` if no evaluation was possible.
+ */
 export function simplifyExpression(ctx: ExecutionContext, ast: ExpressionAst, scope: Scope): ExpressionAst | null | undefined {
     switch (ast.type) {
         case "BinaryExpression": {

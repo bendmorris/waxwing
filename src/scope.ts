@@ -6,6 +6,7 @@ export class Binding {
     refCount: number = 0;
 
     constructor(scope: Scope, value: Value) {
+        this.scope = scope;
         this.value = value;
     }
 
