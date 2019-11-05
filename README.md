@@ -1,4 +1,21 @@
-![Waxwing logo](https://raw.githubusercontent.com/bendmorris/waxwing/master/assets/waxwing-256.png)
+![Waxwing logo](https://raw.githubusercontent.com/bendmorris/waxwing/master/assets/waxwing-128.png)
+
+```
+                   .-.
+                  /'v'\
+                 (/   \)
+                ='="="===<
+                   |_|
+
+ _    _                      _             
+| |  | |                    (_)            
+| |  | | __ ___  ____      ___ _ __   __ _ 
+| |/\| |/ _` \ \/ /\ \ /\ / / | '_ \ / _` |
+\  /\  / (_| |>  <  \ V  V /| | | | | (_| |
+ \/  \/ \__,_/_/\_\  \_/\_/ |_|_| |_|\__, |
+                                      __/ |
+                                     |___/ 
+```
 
 Waxwing is an optimizing JavaScript compiler. This is a **work in progress** and is not ready to be used!
 
@@ -24,8 +41,8 @@ Waxwing optimizes JavaScript to reduce file size and/or improve execution time.
 
 Waxwing occupies a space between minifiers and tools like closure compiler/prepack:
 
-- Minifiers generally attempt only local optimizations; Waxwing tracks execution state and will execute code, so it's capable of more complex optimizations.
-- Closure compiler and prepack impose heavy constraints on your code and require modeling to optimize; Waxwing does "best effort" optimization of code as-is (and support for feeding it more information via TypeScript type definitions is planned.)
+- Minifiers generally attempt only local optimizations; Waxwing tracks execution state and will execute code where possible, so it's capable of more complex optimizations.
+- Closure compiler and prepack impose heavy constraints on your code and require modeling to optimize. This makes them difficult to introduce into large, complex code bases. Waxwing does "best effort" optimization of code as-is (and support for feeding it more information via TypeScript type definitions is planned) and should work out of the box with any code base that meets some common assumptions listed below.
 
 Some examples of optimizations Waxwing will attempt:
 
