@@ -44,11 +44,29 @@ Waxwing occupies a space between minifiers and tools like closure compiler/prepa
 - Minifiers generally attempt only local optimizations; Waxwing tracks execution state and will execute code where possible, so it's capable of more complex optimizations.
 - Closure compiler and prepack impose heavy constraints on your code and require modeling to optimize. This makes them difficult to introduce into large, complex code bases. Waxwing does "best effort" optimization of code as-is (and support for feeding it more information via TypeScript type definitions is planned) and should work out of the box with any code base that meets some common assumptions listed below.
 
+Waxwing is not a full-fledged (pun intended) minifier; as such you may wish to run the output through terser for the greatest possible code size reduction.
+
 Some examples of optimizations Waxwing will attempt:
 
-- Simplifies expressions via partial evaluation. While many minifiers do this as a "peephole optimization" (e.g. `1 + 1` => `2`), Waxwing will take the partial execution context into account (e.g. `{var x = 1; console.log(x + 5);}` => `console.log(6)`.)
-- Aggressive dead code elimination (DCE). Beyond what is done by typical minifiers, Waxwing will eliminate dead declarations (variables or functions whose values aren't needed after optimization.)
-- Function inlining. Waxwing will use a configurable heuristic to decide whether to inline functions at build time where possible.
+### Partial Evaluation
+
+Simplifies expressions via partial evaluation. While many minifiers do this as a "peephole optimization" (e.g. `1 + 1` => `2`), Waxwing will take the partial execution context into account (e.g. `{var x = 1; console.log(x + 5);}` => `console.log(6)`.)
+
+| Input | Terser | Waxwing |
+| --- | --- | --- |
+| `{var x = 1; var y = x + 5; var z = y + " is a number"; console.log(z)}` | `var x=1,y=x+5,z=y+" is a number";console.log(z);` | `console.log("6 is a number");` |
+
+### Dead Code Elimination (DCE)
+
+Beyond what is done by typical minifiers, Waxwing will eliminate dead declarations (variables or functions whose values aren't needed after optimization.)
+
+| Input | Terser | Waxwing |
+| --- | --- | --- |
+| `{var x = 1; var y = x ? 1 : 2; console.log(y)}` | `var x=1,y=x?1:2;console.log(y);` | `console.log(1);` |
+
+### Function Inlining
+
+Waxwing will use a configurable heuristic to decide whether to inline functions at build time where possible. (**Planned**)
 
 ## Assumptions
 
