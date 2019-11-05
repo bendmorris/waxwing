@@ -40,6 +40,9 @@ export interface AbstractValue {
 }
 
 export function abstractValue(ast: Ast): AbstractValue {
+    if (!ast) {
+        throw new Error("Empty AST value when constructing abstract value");
+    }
     return {
         kind: ValueType.Abstract,
         ast,

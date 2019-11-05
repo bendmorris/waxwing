@@ -4,7 +4,7 @@ export interface Options {
     input: string | Ast,
     out: string,
     optimizeForSize: boolean,
-    debug: boolean,
+    verbose: number,
 }
 
 export function makeOptions(options: Partial<Options> = {}): Options {
@@ -18,6 +18,6 @@ export function makeOptions(options: Partial<Options> = {}): Options {
         input: "/dev/null",
         out: "-",
         optimizeForSize: false,
-        debug: false,
+        verbose: 1,
     }, options);
 }

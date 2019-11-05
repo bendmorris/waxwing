@@ -46,7 +46,7 @@ export function simplifyExpression(ctx: ExecutionContext, ast: ExpressionAst, sc
             if (t.isIdentifier(ast.left)) {
                 const id = ast.left.name;
                 if (scope.has(id) && scope.get(id).refCount <= 0) {
-                    ctx.debugLog(ast, "replacing dead assignment with RHS");
+                    ctx.log.log(ast, "replacing dead assignment with RHS");
                     const simplified = simplifyExpression(ctx, ast.right, scope);
                     return simplified === undefined ? ast.right : simplified;
                 }
@@ -67,7 +67,7 @@ export function simplifyExpression(ctx: ExecutionContext, ast: ExpressionAst, sc
 export function eliminateDeadCodeFromBlock(ctx: ExecutionContext, node: t.BlockStatement, scope: Scope) {
     for (let i = 0; i < node.body.length; ++i) {
         const statement = node.body[i];
-        ctx.debugLog(statement, "checking for DCE");
+        ctx.log.info(statement, "checking for DCE");
         if (t.isVariableDeclaration(statement)) {
             for (let j = 0; j < statement.declarations.length; ++j) {
                 const decl = statement.declarations[j];
@@ -78,14 +78,17 @@ export function eliminateDeadCodeFromBlock(ctx: ExecutionContext, node: t.BlockS
                             // eliminate the variable, but check the expression for side effects
                             node.body.splice(i + 1, 0, t.expressionStatement(decl.init));
                         }
+                        ctx.log.log(decl, "removed dead declaration");
                         statement.declarations.splice(j--, 1);
                     }
                 }
             }
             if (statement.declarations.length === 0) {
+                ctx.log.log(statement, "all declarations removed; removing block");
                 node.body.splice(i--, 1);
             }
         } else if (t.isFunctionDeclaration(statement)) {
+            ctx.log.log(statement, "removed dead function declaration");
             const id = statement.id.name;
             if (scope.has(id) && scope.get(id).refCount <= 0) {
                 node.body.splice(i--, 1);
@@ -93,10 +96,10 @@ export function eliminateDeadCodeFromBlock(ctx: ExecutionContext, node: t.BlockS
         } else if (t.isExpressionStatement(statement)) {
             const reduced = simplifyExpression(ctx, statement.expression, scope);
             if (reduced) {
-                ctx.debugLog(statement.expression, "replaced with reduced form");
+                ctx.log.log(statement.expression, "replaced expression statement with reduced form");
                 statement.expression = reduced;
             } else if (reduced === null) {
-                ctx.debugLog(statement.expression, "removed");
+                ctx.log.log(statement.expression, "removed expression statement");
                 node.body.splice(i--, 1);
             }
         }

@@ -62,9 +62,9 @@ export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefine
         }
         case "UnaryExpression": {
             let operand;
-            if (ast.operator == "-" && operand.type === 'NumericLiteral') {
+            if (ast.operator === "-" && t.isNumericLiteral(operand = knownValue(ctx, ast.argument))) {
                 // ignore
-            } else if (unOps[ast.operator] && (operand = knownValue(ctx, ast.argument as Ast)) && operand.kind === ValueType.Concrete) {
+            } else if (unOps[ast.operator] && operand && operand.kind === ValueType.Concrete) {
                 const result = unOps[ast.operator](operand.value);
                 const resultValue = anyToNode(result);
                 if (resultValue) {
@@ -102,10 +102,10 @@ export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefine
         case "CallExpression": {
             const callee = knownValue(ctx, ast.callee);
             if (callee && callee.kind === ValueType.Function) {
-                ctx.debugLog(ast, "found a call expression of a known function");
+                ctx.log.info(ast, "found a call expression of a known function");
                 const returnValue = tryInline(ctx, callee);
                 if (returnValue) {
-                    ctx.debugLog(ast, "call is inlinable");
+                    ctx.log.info(ast, "call is inlinable");
                     return valueToNode(returnValue);
                 }
             }

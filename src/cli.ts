@@ -9,7 +9,7 @@ program
     .arguments('input-file')
     .option('-o, --out <path>', 'output path')
     .option('-Os, --optimize-for-size', "if present, don't use optimizations that increase code size")
-    .option('--debug', "adds verbose debugging output")
+    .option('-v, --verbose', "adds verbose debugging output; repeat for higher verbosity (e.g. -vvv)")
     .parse(process.argv);
 
 const inputFile = program.args[0];
@@ -17,7 +17,7 @@ const options = makeOptions({
     input: inputFile,
     out: program.out,
     optimizeForSize: program.optimizeForSize,
-    debug: program.debug,
+    verbose: program.verbose,
 });
 const result = compile(options);
 if (options.out === '-') {

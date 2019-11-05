@@ -1,5 +1,6 @@
 import { Ast } from '../ast';
 import { Binding, Scope } from '../scope';
+import Logger from '../logger';
 import { Options } from '../options';
 import { Value } from '../value';
 import findEffects from './findEffects';
@@ -7,9 +8,11 @@ import localOptimizations from './localOptimizations';
 
 export class CompileContext {
     options: Options;
+    log: Logger;
 
     constructor(options: Options) {
         this.options = options;
+        this.log = new Logger(options.verbose);
     }
 
     compile(ast: Ast): Ast {
@@ -17,25 +20,17 @@ export class CompileContext {
         const topLevelContext = new ExecutionContext(this, [globalScope]);
         return topLevelContext.compile(ast);
     }
-
-    debugLog(...args) {
-        if (this.options.debug) {
-            if (typeof args[0] === 'object' && typeof args[0].loc === 'object') {
-                const loc = args[0].loc;
-                args[0] = `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column}:`;
-            }
-            console.warn(...args);
-        }
-    }
 }
 
 export class ExecutionContext {
     compileContext: CompileContext;
     scopes: Scope[];
+    log: Logger;
 
     constructor(compileContext: CompileContext, scopes: Scope[]) {
         this.compileContext = compileContext;
         this.scopes = scopes;
+        this.log = compileContext.log;
     }
 
     resolve(name: string): Binding | undefined {
@@ -46,11 +41,5 @@ export class ExecutionContext {
         findEffects(ast);
         localOptimizations(this, ast);
         return ast;
-    }
-
-    debugLog(...args) {
-        if (this.compileContext.options.debug) {
-            this.compileContext.debugLog(...args);
-        }
     }
 }
