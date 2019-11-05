@@ -38,7 +38,7 @@ const options = makeOptions({
 });
 const result = compile(options);
 if (options.out === '-') {
-    console.log(result);
+    process.stdout.write(result);
 } else {
     fs.writeFileSync(args.out as string, result);
 }

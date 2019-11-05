@@ -61,8 +61,8 @@ export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefine
             break;
         }
         case "UnaryExpression": {
-            let operand;
-            if (ast.operator === "-" && t.isNumericLiteral(operand = knownValue(ctx, ast.argument))) {
+            let operand = knownValue(ctx, ast.argument);
+            if (ast.operator === "-" && t.isNumericLiteral(operand)) {
                 // ignore
             } else if (unOps[ast.operator] && operand && operand.kind === ValueType.Concrete) {
                 const result = unOps[ast.operator](operand.value);
