@@ -14,9 +14,13 @@ export default class Logger {
     debugLog(level, ...args) {
         if (this.verbose >= level) {
             // if the first argument is an AST node, log its source position, not the whole node
-            if (typeof args[0] === 'object' && typeof args[0].loc === 'object') {
-                const loc = args[0].loc;
-                args[0] = `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column}:`;
+            if (typeof args[0] === 'object') {
+                if (typeof args[0].loc === 'object') {
+                    const loc = args[0].loc;
+                    args[0] = `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column}:`;
+                } else {
+                    args[0] = '???:';
+                }
             }
             console.warn(...args);
         }

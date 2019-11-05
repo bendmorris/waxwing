@@ -18,6 +18,6 @@ export function makeOptions(options: Partial<Options> = {}): Options {
         input: "/dev/null",
         out: "-",
         optimizeForSize: false,
-        verbose: 1,
+        verbose: 0,
     }, options);
 }

@@ -96,10 +96,10 @@ export function eliminateDeadCodeFromBlock(ctx: ExecutionContext, node: t.BlockS
         } else if (t.isExpressionStatement(statement)) {
             const reduced = simplifyExpression(ctx, statement.expression, scope);
             if (reduced) {
-                ctx.log.log(statement.expression, "replaced expression statement with reduced form");
+                ctx.log.log(statement, "replaced expression statement with reduced form");
                 statement.expression = reduced;
             } else if (reduced === null) {
-                ctx.log.log(statement.expression, "removed expression statement");
+                ctx.log.log(statement, "removed expression statement");
                 node.body.splice(i--, 1);
             }
         }
