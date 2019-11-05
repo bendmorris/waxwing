@@ -15,7 +15,7 @@ export function makeOptions(options: Partial<Options> = {}): Options {
         }
     }
     return Object.assign({
-        input: "/dev/null",
+        input: undefined,
         out: "-",
         optimizeForSize: false,
         verbose: 0,

@@ -1,31 +1,44 @@
 #!/usr/bin/env node
-import program from 'commander';
 import compile from './compiler';
 import { makeOptions } from './options';
 import fs from 'fs';
+import process from 'process';
+import yargs from 'yargs';
 
-function increaseVerbosity(dummyValue, previous) {
-    return previous + 1;
-}
+const args = yargs
+    .scriptName('waxwing')
+    .usage('$0 <cmd> [args]')
+    .command('$0 <inputFile>', 'An optimizing JavaScript compiler', (yargs: yargs.Argv) =>
+        yargs.positional('inputFile', {
+            describe: "path to input file",
+            type: 'string',
+            required: true
+        })
+        .option('out', {
+            alias: 'o',
+            description: 'output path',
+            type: 'string',
+            default: '-'
+        })
+        .option('verbose', {
+            alias: 'v',
+            description: 'display verbose logs (can be repeated to increase verbosity)',
+            type: 'boolean'
+        })
+        .count('verbose')
+    )
+    .help()
+    .alias('help', 'h')
+    .argv;
 
-program
-    .name('waxwing')
-    .arguments('input-file')
-    .option('-o, --out <path>', 'output path')
-    .option('-Os, --optimize-for-size', "if present, don't use optimizations that increase code size")
-    .option('-v, --verbose', "adds verbose debugging output; repeat for higher verbosity (e.g. -vvv)", increaseVerbosity, 0)
-    .parse(process.argv);
-
-const inputFile = program.args[0];
 const options = makeOptions({
-    input: inputFile,
-    out: program.out,
-    optimizeForSize: program.optimizeForSize,
-    verbose: program.verbose,
+    input: args.inputFile as string,
+    out: args.out as string,
+    verbose: args.verbose as number,
 });
 const result = compile(options);
 if (options.out === '-') {
     console.log(result);
 } else {
-    fs.writeFileSync(program.out, result);
+    fs.writeFileSync(args.out as string, result);
 }
