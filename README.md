@@ -50,7 +50,7 @@ Some examples of optimizations Waxwing will attempt:
 
 ### Partial Evaluation
 
-Simplifies expressions via partial evaluation. While many minifiers do this as a "peephole optimization" (e.g. `1 + 1` => `2`), Waxwing will take the partial execution context into account (e.g. `{var x = 1; console.log(x + 5);}` => `console.log(6)`.)
+Simplifies expressions via partial evaluation. While some minifiers do this as a "peephole optimization" (using only local information, e.g. `1 + 1` => `2`), Waxwing will take the partial execution context into account (e.g. `{var x = 1; console.log(x + 5);}` => `console.log(6)`.)
 
 | Input | Terser | Waxwing |
 | --- | --- | --- |
@@ -68,10 +68,10 @@ Beyond what is done by typical minifiers, Waxwing will eliminate dead declaratio
 
 Waxwing will use a configurable heuristic to decide whether to inline functions at build time where possible. (**Planned**)
 
-## Assumptions
+## Constraints
 
 JavaScript is very dynamic; some optimizations rely on assumptions about the way you use JavaScript. These constraints should hold for the vast majority of JS code:
 
-- Don't overwrite built-in property methods with new versions that break the original contract.
-- Don't use `eval` to dynamically introduce or modify variables. You *can* use `eval` to return an expression (Waxwing will treat this as an unknown value) but variable references inside the `eval` code will *not* be considered by Waxwing, so values used can be collected during DCE.
+- Don't overwrite built-in property methods with new versions that break the original contract. Waxwing will assume it knows the outcome of these prototype methods.
+- Don't use `eval` to dynamically introduce or modify variables, and make sure variables are not *only* referenced in `eval` code. You *can* use `eval` to return an expression (Waxwing will treat this as an unknown value) but variable references inside the `eval` code will *not* be considered by Waxwing, so values used can be collected during DCE, resulting in invalid code.
 - Functions defined with `new Function` are not eligible for any optimizations relying on function introspection; they can't be inlined, etc.
