@@ -55,7 +55,7 @@ export default function optimizeLocal(ctx: ExecutionContext, ast: Ast) {
         },
 
         exit(path) {
-            ctx.log.chatty(path.node, "exiting: " + path);
+            ctx.log.chatty(path.node, "exiting");
             switch (path.node.type) {
                 case "BlockStatement":
                 case "FunctionDeclaration":
