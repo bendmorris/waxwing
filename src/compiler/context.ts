@@ -3,8 +3,8 @@ import { Binding, Scope } from '../scope';
 import Logger from '../logger';
 import { Options } from '../options';
 import { Value } from '../value';
-import findEffects from './findEffects';
-import localOptimizations from './localOptimizations';
+import analyze from './analyze';
+import optimize from './optimize';
 
 export class CompileContext {
     options: Options;
@@ -38,8 +38,8 @@ export class ExecutionContext {
     }
 
     compile(ast: Ast): Ast {
-        findEffects(ast);
-        localOptimizations(this, ast);
+        analyze(this, ast);
+        optimize(this, ast);
         return ast;
     }
 }

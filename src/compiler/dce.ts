@@ -2,6 +2,7 @@ import * as t from '@babel/types';
 import { Ast, ExpressionAst } from '../ast';
 import { Scope } from '../scope';
 import { ExecutionContext } from './context';
+import { valueToNode } from './utils';
 
 /**
  * Simplify an expression whose value is not needed. This should retain any
@@ -13,6 +14,9 @@ import { ExecutionContext } from './context';
  *   - `undefined` if no evaluation was possible.
  */
 export function simplifyExpression(ctx: ExecutionContext, ast: ExpressionAst, scope: Scope): ExpressionAst | null | undefined {
+    if (ast.knownValue) {
+        return valueToNode(ast.knownValue);
+    }
     switch (ast.type) {
         case "BinaryExpression": {
             const reduceLeft = simplifyExpression(ctx, ast.left, scope);

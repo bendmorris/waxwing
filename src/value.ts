@@ -1,4 +1,4 @@
-import { Ast } from './ast';
+import { Ast, ExpressionAst } from './ast';
 import { Constraint } from './constraint';
 
 export const enum ValueType {
@@ -36,10 +36,10 @@ export function functionValue(body: Ast, isArrowFunction: boolean = false): Func
 
 export interface AbstractValue {
     kind: ValueType.Abstract,
-    ast: Ast,
+    ast: ExpressionAst,
 }
 
-export function abstractValue(ast: Ast): AbstractValue {
+export function abstractValue(ast: ExpressionAst): AbstractValue {
     if (!ast) {
         throw new Error("Empty AST value when constructing abstract value");
     }

@@ -1,7 +1,5 @@
 import * as t from '@babel/types';
-import babelTraverse from '@babel/traverse';
-import { Ast } from '../ast';
-import { Effect, EffectType } from '../effect';
+import { Ast, ExpressionAst } from '../ast';
 import { Value, ValueType, FunctionValue, abstractValue, concreteValue, functionValue } from '../value';
 import { ExecutionContext } from './context';
 import { anyToNode, valueToNode } from './utils';
@@ -46,7 +44,7 @@ const unOps = {
  *   - `null` if the node can be discarded.
  *   - `undefined` if no evaluation was possible.
  */
-export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefined {
+export function evaluate(ctx: ExecutionContext, ast: ExpressionAst): ExpressionAst | null | undefined {
     switch (ast.type) {
         case "BinaryExpression":
         case "LogicalExpression": {
@@ -73,8 +71,7 @@ export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefine
             }
             break;
         }
-        case "ConditionalExpression":
-        case "IfStatement": {
+        case "ConditionalExpression": {
             let test;
             if ((test = knownValue(ctx, ast.test as Ast)) && test.kind === ValueType.Concrete) {
                 if (test.value) {
@@ -93,8 +90,6 @@ export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefine
                 const resultNode = valueToNode(result.value);
                 if (resultNode) {
                     return resultNode;
-                } else {
-                    result.addRef();
                 }
             }
             break;
@@ -107,6 +102,16 @@ export function evaluate(ctx: ExecutionContext, ast: Ast): Ast | null | undefine
                 if (returnValue) {
                     ctx.log.info(ast, "call is inlinable");
                     return valueToNode(returnValue);
+                }
+            }
+            break;
+        }
+        case "MemberExpression": {
+            const evaluated = knownValue(ctx, ast);
+            if (evaluated && evaluated.kind === ValueType.Concrete) {
+                const property = evaluated.value[ast.property.name];
+                if (property && typeof property !== 'function') {
+                    ast.knownValue = concreteValue(property);
                 }
             }
             break;
@@ -133,6 +138,9 @@ export function evalValue(ctx: ExecutionContext, value: Value): Value {
 }
 
 export function knownValue(ctx: ExecutionContext, ast: Ast): Value | undefined {
+    if (ast.knownValue) {
+        return ast.knownValue;
+    }
     switch (ast.type) {
         case "StringLiteral":
         case "NumericLiteral":

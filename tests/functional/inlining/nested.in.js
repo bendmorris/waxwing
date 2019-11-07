@@ -1,5 +1,5 @@
 {
-    console.log(12);
+    console.log(f(5));
 
     function g(x) {
         return x * 2;

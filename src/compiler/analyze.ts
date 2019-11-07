@@ -3,8 +3,9 @@ import babelTraverse from '@babel/traverse';
 import * as t from '@babel/types';
 import { Ast, addEnterEffect, addExitEffect } from '../ast';
 import { createDefineEffect } from '../effect';
-import { knownValue } from './evaluate';
 import { Value, concreteValue, abstractValue, functionValue } from '../value';
+import { ExecutionContext } from './context';
+import { knownValue } from './evaluate';
 
 function findEffectsInBody(path: Ast, body: t.Statement[]) {
     for (const child of body) {
@@ -42,7 +43,7 @@ function findEffectsInBody(path: Ast, body: t.Statement[]) {
  * @param context
  * @param ast
  */
-export default function findEffects(ast: Ast) {
+export default function analyze(ctx: ExecutionContext, ast: Ast) {
     // Annotate the AST with scopes here, containing bindings for arguments,
     // functions and variables that are defined within the scope.
     // Blocks and functions have a scope containing their vars/arguments;
