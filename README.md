@@ -46,28 +46,6 @@ Waxwing occupies a space between minifiers and tools like closure compiler/prepa
 
 Waxwing is not a full-fledged (pun intended) minifier; as such you may wish to run the output through terser for the greatest possible code size reduction.
 
-Some examples of optimizations Waxwing will attempt:
-
-### Partial Evaluation
-
-Simplifies expressions via partial evaluation. While some minifiers do this as a "peephole optimization" (using only local information, e.g. `1 + 1` => `2`), Waxwing will take the partial execution context into account (e.g. `{var x = 1; console.log(x + 5);}` => `console.log(6)`.)
-
-| Input | Terser | Waxwing |
-| --- | --- | --- |
-| `{var x = 1; var y = x + 5; var z = y + " is a number"; console.log(z)}` | `var x=1,y=x+5,z=y+" is a number";console.log(z);` | `console.log("6 is a number");` |
-
-### Dead Code Elimination (DCE)
-
-Beyond what is done by typical minifiers, Waxwing will eliminate dead declarations (variables or functions whose values aren't needed after optimization.)
-
-| Input | Terser | Waxwing |
-| --- | --- | --- |
-| `{var x = 1; var y = x ? 1 : 2; console.log(y)}` | `var x=1,y=x?1:2;console.log(y);` | `console.log(1);` |
-
-### Function Inlining
-
-Waxwing will use a configurable heuristic to decide whether to inline functions at build time where possible. (**Planned**)
-
 ## Constraints
 
 JavaScript is very dynamic; some optimizations rely on assumptions about the way you use JavaScript. These constraints should hold for the vast majority of JS code:
