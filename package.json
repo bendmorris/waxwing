@@ -1,0 +1,39 @@
+{
+  "name": "waxwing",
+  "version": "0.1.0",
+  "description": "JS-to-JS optimizing compiler",
+  "main": "lib/index.js",
+  "bin": {
+    "waxwing": "lib/cli.js"
+  },
+  "scripts": {
+    "start": "node lib/cli.js",
+    "build": "node_modules/.bin/tsc",
+    "clean": "rm -rf lib",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bendmorris/waxwing.git"
+  },
+  "author": "Ben Morris <ben@bendmorris.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bendmorris/waxwing/issues"
+  },
+  "homepage": "https://github.com/bendmorris/waxwing#readme",
+  "dependencies": {
+    "@babel/core": "^7.6.4",
+    "@babel/parser": "^7.6.4",
+    "@babel/traverse": "^7.6.3",
+    "yargs": "^14.2.0"
+  },
+  "devDependencies": {
+    "@babel/types": "^7.6.3",
+    "@types/jest": "^24.0.20",
+    "@types/node": "^12.11.7",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.1.0",
+    "typescript": "^3.6.4"
+  }
+}
