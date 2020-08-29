@@ -10,7 +10,7 @@
     "start": "node lib/cli.js",
     "build": "node_modules/.bin/tsc",
     "clean": "rm -rf lib",
-    "test": "jest"
+    "test": "node_modules/jest/bin/jest.js"
   },
   "repository": {
     "type": "git",
@@ -23,13 +23,13 @@
   },
   "homepage": "https://github.com/bendmorris/waxwing#readme",
   "dependencies": {
-    "@babel/core": "^7.6.4",
-    "@babel/parser": "^7.6.4",
-    "@babel/traverse": "^7.6.3",
+    "@babel/core": "^7.8.3",
+    "@babel/parser": "^7.8.3",
+    "@babel/traverse": "^7.8.3",
     "yargs": "^14.2.0"
   },
   "devDependencies": {
-    "@babel/types": "^7.6.3",
+    "@babel/types": "^7.8.3",
     "@types/jest": "^24.0.20",
     "@types/node": "^12.11.7",
     "jest": "^24.9.0",
