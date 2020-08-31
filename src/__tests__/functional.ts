@@ -18,8 +18,8 @@ function globDir(dir: string, pattern: string): string[] {
 }
 
 describe('functional tests', () => {
-    for (const testPath of globDir('functional', '.*\.in\.js')) {
-        test(`${testPath.substr("functional/".length)}`, () => {
+    for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
+        test(`${testPath.substr('tests/functional/'.length)}`, () => {
             // TODO: overridable options
             const options: Options = makeOptions({
                 input: testPath,

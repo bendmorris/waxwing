@@ -1,6 +1,7 @@
 import * as ir from '../ir';
 import { Ast } from '../ast';
-import { IrExprType } from '../ir';
+import { IrExprType, exprLiteral } from '../ir';
+import { FunctionDefinition } from '../ir/function';
 
 class CompileContext {
     private _nextLocal: number;
@@ -18,9 +19,9 @@ class CompileContext {
  * Break down an AST node, returning a TrivialExpr. If this requires
  * decomposing, additional assignments will be added to `block`.
  */
-function decomposeToTrivial(ctx: CompileContext, block: ir.IrBlock, ast: Ast): ir.TrivialExpr {
+function decomposeExpr(ctx: CompileContext, block: ir.IrBlock, ast: Ast): ir.TrivialExpr {
     function decompose(x: Ast) {
-        return decomposeToTrivial(ctx, block, x);
+        return decomposeExpr(ctx, block, x);
     }
     function decomposeCall(x: Ast): ir.TrivialExprNoCall {
         const decomposed = decompose(x);
@@ -46,6 +47,17 @@ function decomposeToTrivial(ctx: CompileContext, block: ir.IrBlock, ast: Ast): i
             block.assign().local(id).unop(ast.operator, ast.prefix, decomposed);
             return ir.exprIdentifierLocal(id);
         }
+        case 'UpdateExpression': {
+            if (ast.prefix) {
+                // prefix: provide the original value, and also update it
+                // TODO
+            } else {
+                // suffix, update the value and use that new identifier
+                // TODO
+            }
+            // FIXME
+            return ir.exprRaw(ast);
+        }
         case 'BinaryExpression':
         case 'LogicalExpression': {
             const decomposedLeft = decompose(ast.left),
@@ -68,16 +80,26 @@ function decomposeToTrivial(ctx: CompileContext, block: ir.IrBlock, ast: Ast): i
 /**
  * Compile a babel AST node, adding WWIR statements to a block. This function
  * directly handles statements; expressions are handled in
- * `decomposeToTrivial`.
+ * `decomposeExpr`.
  */
-function compileExpr(ctx: CompileContext, block: ir.IrBlock, ast: Ast) {
+function compileStmt(ctx: CompileContext, block: ir.IrBlock, ast: Ast) {
     function recurse(x: Ast) {
-        compileExpr(ctx, block, x);
+        compileStmt(ctx, block, x);
     }
     function decompose(x: Ast) {
-        return decomposeToTrivial(ctx, block, x);
+        return decomposeExpr(ctx, block, x);
     }
     switch (ast.type) {
+        case 'BlockStatement': {
+            for (const stmt of ast.body) {
+                recurse(stmt);
+            }
+            break;
+        }
+        case 'VariableDeclaration': {
+            // TODO...
+            break;
+        }
         case 'IfStatement': {
             block.if();
             recurse(ast.test);
@@ -92,7 +114,7 @@ function compileExpr(ctx: CompileContext, block: ir.IrBlock, ast: Ast) {
         }
         case 'ForStatement': {
             recurse(ast.init);
-            block.loop();
+            block.while();
             recurse(ast.test);
             block.start();
             recurse(ast.body);
@@ -109,7 +131,11 @@ function compileExpr(ctx: CompileContext, block: ir.IrBlock, ast: Ast) {
         // }
         case 'DoWhileStatement':
         case 'WhileStatement': {
-            block.loop(ast.type === 'DoWhileStatement');
+            if (ast.type === 'DoWhileStatement') {
+                block.doWhile();
+            } else {
+                block.while();
+            }
             recurse(ast.test);
             block.start();
             recurse(ast.body);
@@ -124,6 +150,17 @@ function compileExpr(ctx: CompileContext, block: ir.IrBlock, ast: Ast) {
             block.continue();
             break;
         }
+        case 'ReturnStatement': {
+            block.return(ast.argument ? decompose(ast.argument) : exprLiteral(undefined));
+            break;
+        }
+        case 'FunctionDeclaration': {
+            const def = new FunctionDefinition();
+            def.name = ast.id.name;
+            block.function(def);
+            compileStmt(ctx, def.body, ast.body);
+            break;
+        }
         default: {
             const id = ctx.nextLocal();
             const decomposed = decompose(ast);
@@ -135,9 +172,11 @@ function compileExpr(ctx: CompileContext, block: ir.IrBlock, ast: Ast) {
 /**
  * Generate a WWIR program block from a Babel AST node.
  */
-export function irCompile(ast: Ast): ir.IrBlock {
+export function irCompile(body: Ast[]): ir.IrBlock {
     const ctx = new CompileContext();
     const block = new ir.IrBlock();
-    compileExpr(ctx, block, ast);
+    for (const ast of body) {
+        compileStmt(ctx, block, ast);
+    }
     return block;
 }

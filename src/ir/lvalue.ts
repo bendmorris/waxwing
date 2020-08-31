@@ -1,4 +1,4 @@
-import { TrivialExpr } from './expr';
+import { TrivialExpr, exprToString } from './expr';
 
 export const enum LvalueType {
     Local,
@@ -53,3 +53,12 @@ export function lvalueProperty(expr: TrivialExpr, property: TrivialExpr): Lvalue
 }
 
 export type Lvalue = LvalueLocal | LvalueBasic | LvalueProperty;
+
+export function lvalueToString(lvalue: Lvalue) {
+    switch (lvalue.kind) {
+        case LvalueType.Local: return `$${lvalue.id}`;
+        case LvalueType.Captured: return `(captured ${lvalue.name})`;
+        case LvalueType.Global: return `(global ${lvalue.name})`;
+        case LvalueType.Property: return `(${exprToString(lvalue.expr)})[${exprToString(lvalue.property)}]`;
+    }
+}

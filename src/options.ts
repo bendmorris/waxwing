@@ -1,7 +1,7 @@
 import { Ast } from './ast';
 
 export interface Options {
-    input: string | Ast,
+    input: string | Ast[],
     out: string,
     optimizeForSize: boolean,
     verbose: number,

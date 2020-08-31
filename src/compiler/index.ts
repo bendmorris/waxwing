@@ -4,7 +4,7 @@ import { irCompile } from './compile';
 import { irSerialize } from './serialize';
 
 export function compile(options: Options): string {
-    let input: Ast;
+    let input: Ast[];
     if (typeof options.input === 'string') {
         input = parseFile(options.input);
     } else {

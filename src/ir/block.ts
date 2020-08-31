@@ -1,7 +1,8 @@
-import { IrStmtType, IrStmt, IrAssignmentStmt } from './stmt';
+import { IrStmtType, IrStmt, IrAssignmentStmt, stmtToString, LoopType } from './stmt';
 import * as e from './expr';
 import { lvalueLocal } from './lvalue';
 import { Ast } from '../ast';
+import { FunctionDefinition } from './function';
 
 export class AssignmentBuilder {
     stmt: IrAssignmentStmt;
@@ -68,8 +69,23 @@ export class IrBlock {
         return this;
     }
 
-    loop(isDoWhile: boolean = false) {
-        this.push({ kind: IrStmtType.Loop, isDoWhile, });
+    while() {
+        this.push({ kind: IrStmtType.Loop, loopType: LoopType.While });
+        return this;
+    }
+
+    doWhile() {
+        this.push({ kind: IrStmtType.Loop, loopType: LoopType.DoWhile });
+        return this;
+    }
+
+    forIn() {
+        this.push({ kind: IrStmtType.Loop, loopType: LoopType.ForIn });
+        return this;
+    }
+
+    forOf() {
+        this.push({ kind: IrStmtType.Loop, loopType: LoopType.ForOf });
         return this;
     }
 
@@ -96,5 +112,13 @@ export class IrBlock {
     return(expr?: e.TrivialExpr) {
         this.push({ kind: IrStmtType.Return, expr, });
         return this;
+    }
+
+    function(def: FunctionDefinition) {
+        this.push({ kind: IrStmtType.FunctionDeclaration, def})
+    }
+
+    toString(): string {
+        return this.body.map(stmtToString).join('\n') + '\n';
     }
 }

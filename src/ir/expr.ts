@@ -1,5 +1,7 @@
 import { Ast } from '../ast';
-import { Lvalue, LvalueLocal, lvalueLocal } from './lvalue';
+import { Lvalue, LvalueLocal, lvalueLocal, lvalueToString } from './lvalue';
+import { IrBlock } from './block';
+import { FunctionDefinition } from './function';
 
 export const enum IrExprType {
     // trivial
@@ -14,6 +16,7 @@ export const enum IrExprType {
     Object,
     Call,
     Next,
+    Function,
     // must be decomposed
     Unop,
     Binop,
@@ -88,6 +91,11 @@ export interface IrNextExpr {
     value: TrivialExpr,
 }
 
+export interface IrFunctionExpr {
+    kind: IrExprType.Function,
+    def: FunctionDefinition,
+}
+
 export type TrivialExprNoCall =
     IrRawExpr |
     IrLiteralExpr |
@@ -98,7 +106,8 @@ export type TrivialExprNoCall =
     IrGlobalThisExpr |
     IrArrayExpr |
     IrObjectExpr |
-    IrNextExpr
+    IrNextExpr |
+    IrFunctionExpr
 ;
 
 /**
@@ -123,7 +132,7 @@ export function exprCall(callee: TrivialExprNoCall, args: TrivialExprNoCall[], i
 
 export type TrivialExpr = TrivialExprNoCall | IrCallExpr;
 
-export type UnaryOperator = '+' | '-' | '++' | '--' | '!' | '~' | 'delete' | 'void' | 'typeof' | 'throw';
+export type UnaryOperator = '+' | '-' | '!' | '~' | 'delete' | 'void' | 'typeof' | 'throw';
 
 export interface IrUnopExpr {
     kind: IrExprType.Unop,
@@ -174,3 +183,22 @@ export function exprBinop(operator: BinaryOperator, left: TrivialExpr, right: Tr
  * To create statements, these must be decomposed by assigning to locals.
  */
 export type Expr = TrivialExpr | IrUnopExpr | IrBinopExpr | IrCallExpr;
+
+export function exprToString(expr: Expr) {
+    switch (expr.kind) {
+        case IrExprType.Arguments: return 'arguments';
+        case IrExprType.Array: return `[${expr.values.map(exprToString).join(', ')}]`;
+        case IrExprType.Binop: return `${exprToString(expr.left)} ${expr.operator} ${exprToString(expr.right)}`;
+        case IrExprType.Call: return `${exprToString(expr.callee)}(${expr.args.map(exprToString).join(', ')})`;
+        case IrExprType.GlobalThis: return 'globalThis';
+        case IrExprType.Identifier: return lvalueToString(expr.lvalue);
+        case IrExprType.Literal: return String(expr.value);
+        case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;
+        case IrExprType.Object: return '???'; // FIXME
+        case IrExprType.Phi: return `phi(${expr.lvalues.map(lvalueToString).join(', ')})`;
+        case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;
+        case IrExprType.This: return 'this';
+        case IrExprType.Unop: return expr.prefix ? `${expr.operator}${exprToString(expr.expr)}` : `${exprToString(expr.expr)}${expr.operator}`;
+        case IrExprType.Function: return `${expr.def.description()} { ... }` // FIXME
+    }
+}
