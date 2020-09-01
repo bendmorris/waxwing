@@ -3,8 +3,6 @@ import { TrivialExpr, exprToString } from './expr';
 export const enum LvalueType {
     Local,
     Global,
-    Captured,
-    Property,
 }
 
 export interface LvalueLocal {
@@ -19,46 +17,23 @@ export function lvalueLocal(id: number): LvalueLocal {
     };
 }
 
-export interface LvalueBasic {
-    kind: LvalueType.Global | LvalueType.Captured,
+export interface LvalueGlobal {
+    kind: LvalueType.Global,
     name: string,
 }
 
-export function lvalueGlobal(name: string): LvalueBasic {
+export function lvalueGlobal(name: string): LvalueGlobal {
     return {
         kind: LvalueType.Global,
         name,
     };
 }
 
-export function lvalueCaptured(name: string): LvalueBasic {
-    return {
-        kind: LvalueType.Captured,
-        name,
-    };
-}
-
-export interface LvalueProperty {
-    kind: LvalueType.Property,
-    expr: TrivialExpr,
-    property: TrivialExpr,
-}
-
-export function lvalueProperty(expr: TrivialExpr, property: TrivialExpr): LvalueProperty {
-    return {
-        kind: LvalueType.Property,
-        expr,
-        property,
-    };
-}
-
-export type Lvalue = LvalueLocal | LvalueBasic | LvalueProperty;
+export type Lvalue = LvalueLocal | LvalueGlobal;
 
 export function lvalueToString(lvalue: Lvalue) {
     switch (lvalue.kind) {
         case LvalueType.Local: return `$${lvalue.id}`;
-        case LvalueType.Captured: return `(captured ${lvalue.name})`;
-        case LvalueType.Global: return `(global ${lvalue.name})`;
-        case LvalueType.Property: return `(${exprToString(lvalue.expr)})[${exprToString(lvalue.property)}]`;
+        case LvalueType.Global: return lvalue.name;
     }
 }

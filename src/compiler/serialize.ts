@@ -1,8 +1,7 @@
 import { Ast } from '../ast';
-import { IrBlock } from '../ir/block';
+import { IrBlock, IrProgram, TrivialExpr } from '../ir';
 import * as babel from '@babel/core';
 import * as t from '@babel/types';
-import { TrivialExpr } from '../ir/expr';
 
 function decomposeExpr(expr: TrivialExpr): Ast {
     return undefined;
@@ -19,8 +18,9 @@ function decompose(block: IrBlock): t.Statement[] {
 /**
  * Convert a block of WWIR into a string of JS source.
  */
-export function irSerialize(block: IrBlock): string {
-    const program = t.program(decompose(block));
-    const { code } = babel.transformFromAstSync(program, undefined, { compact: true });
-    return code + '\n';
+export function irSerialize(block: IrProgram): string {
+    // const program = t.program(decompose(block));
+    // const { code } = babel.transformFromAstSync(program, undefined, { compact: true });
+    // return code + '\n';
+    return 'TODO';
 }

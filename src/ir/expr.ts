@@ -1,7 +1,8 @@
 import { Ast } from '../ast';
-import { Lvalue, LvalueLocal, lvalueLocal, lvalueToString } from './lvalue';
+import { Lvalue, LvalueLocal, lvalueLocal, lvalueToString, lvalueGlobal } from './lvalue';
 import { IrBlock } from './block';
 import { FunctionDefinition } from './function';
+import { string } from 'yargs';
 
 export const enum IrExprType {
     // trivial
@@ -14,12 +15,13 @@ export const enum IrExprType {
     GlobalThis,
     Array,
     Object,
-    Call,
     Next,
     Function,
     // must be decomposed
     Unop,
     Binop,
+    Property,
+    Call,
 }
 
 export interface IrRawExpr {
@@ -55,6 +57,13 @@ export function exprIdentifierLocal(id: number): IrIdentifierExpr {
     return {
         kind: IrExprType.Identifier,
         lvalue: lvalueLocal(id),
+    };
+}
+
+export function exprIdentifierGlobal(name: string): IrIdentifierExpr {
+    return {
+        kind: IrExprType.Identifier,
+        lvalue: lvalueGlobal(name),
     };
 }
 
@@ -96,7 +105,7 @@ export interface IrFunctionExpr {
     def: FunctionDefinition,
 }
 
-export type TrivialExprNoCall =
+export type TrivialExpr =
     IrRawExpr |
     IrLiteralExpr |
     IrIdentifierExpr |
@@ -109,28 +118,6 @@ export type TrivialExprNoCall =
     IrNextExpr |
     IrFunctionExpr
 ;
-
-/**
- * Calls are trivial expressions, but their callee and arguments cannot be
- * other calls; they must be decomposed into separate assignments first.
- */
-export interface IrCallExpr {
-    kind: IrExprType.Call,
-    callee: TrivialExprNoCall,
-    args: TrivialExprNoCall[],
-    isNew: boolean,
-}
-
-export function exprCall(callee: TrivialExprNoCall, args: TrivialExprNoCall[], isNew: boolean = false): IrCallExpr {
-    return {
-        kind: IrExprType.Call,
-        callee,
-        args,
-        isNew,
-    };
-}
-
-export type TrivialExpr = TrivialExprNoCall | IrCallExpr;
 
 export type UnaryOperator = '+' | '-' | '!' | '~' | 'delete' | 'void' | 'typeof' | 'throw';
 
@@ -178,11 +165,41 @@ export function exprBinop(operator: BinaryOperator, left: TrivialExpr, right: Tr
     }
 }
 
+export interface IrPropertyExpr {
+    kind: IrExprType.Property,
+    expr: TrivialExpr,
+    property: TrivialExpr,
+}
+
+export function exprProperty(expr: TrivialExpr, property: TrivialExpr): IrPropertyExpr {
+    return {
+        kind: IrExprType.Property,
+        expr,
+        property,
+    }
+}
+
+export interface IrCallExpr {
+    kind: IrExprType.Call,
+    callee: TrivialExpr,
+    args: TrivialExpr[],
+    isNew: boolean,
+}
+
+export function exprCall(callee: TrivialExpr, args: TrivialExpr[], isNew: boolean = false): IrCallExpr {
+    return {
+        kind: IrExprType.Call,
+        callee,
+        args,
+        isNew,
+    };
+}
+
 /**
  * In WWIR, an Expr is a compound expression composed of multiple TrivialExprs.
  * To create statements, these must be decomposed by assigning to locals.
  */
-export type Expr = TrivialExpr | IrUnopExpr | IrBinopExpr | IrCallExpr;
+export type Expr = TrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr;
 
 export function exprToString(expr: Expr) {
     switch (expr.kind) {
@@ -190,15 +207,16 @@ export function exprToString(expr: Expr) {
         case IrExprType.Array: return `[${expr.values.map(exprToString).join(', ')}]`;
         case IrExprType.Binop: return `${exprToString(expr.left)} ${expr.operator} ${exprToString(expr.right)}`;
         case IrExprType.Call: return `${exprToString(expr.callee)}(${expr.args.map(exprToString).join(', ')})`;
+        case IrExprType.Function: return `${expr.def.description()} { ... }` // FIXME
         case IrExprType.GlobalThis: return 'globalThis';
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
-        case IrExprType.Literal: return String(expr.value);
+        case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;
         case IrExprType.Object: return '???'; // FIXME
         case IrExprType.Phi: return `phi(${expr.lvalues.map(lvalueToString).join(', ')})`;
+        case IrExprType.Property: return `${exprToString(expr.expr)}[${exprToString(expr.property)}]`;
         case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;
         case IrExprType.This: return 'this';
         case IrExprType.Unop: return expr.prefix ? `${expr.operator}${exprToString(expr.expr)}` : `${exprToString(expr.expr)}${expr.operator}`;
-        case IrExprType.Function: return `${expr.def.description()} { ... }` // FIXME
     }
 }

@@ -1,4 +1,5 @@
 import { IrBlock } from './block';
+import { IrProgram } from './program';
 
 export interface FunctionArg {
     name: string,
@@ -6,18 +7,20 @@ export interface FunctionArg {
 }
 
 export class FunctionDefinition {
+    program: IrProgram;
     name?: string;
     isArrow: boolean;
     args: FunctionArg[];
     restParam?: string;
     body: IrBlock;
     
-    constructor() {
+    constructor(program: IrProgram) {
+        this.program = program;
         this.name = undefined;
         this.isArrow = false;
         this.args = [];
         this.restParam = undefined;
-        this.body = new IrBlock();
+        this.body = program.block();
     }
 
     description(): string {
@@ -25,6 +28,6 @@ export class FunctionDefinition {
         if (this.restParam) {
             args.push('...' + this.restParam);
         }
-        return `function${this.name ? (' ' + this.name) : ''}(${args.join(', ')})\n`;
+        return `function${this.name ? (' ' + this.name) : ''}(${args.join(', ')}) :${this.body.id}`;
     }
 }

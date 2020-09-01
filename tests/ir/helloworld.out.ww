@@ -1,0 +1,7 @@
+0:
+function helloWorld() :1
+$2 = helloWorld()
+
+1:
+$0 = console["log"]
+$1 = $0("hello, world!")

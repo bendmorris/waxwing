@@ -9,16 +9,13 @@ export const enum IrStmtType {
     Assignment,
     Return,
     If,
-    Else,
     Loop,
     Continue,
     Break,
-    StartBlock,
-    EndBlock,
     FunctionDeclaration,
 }
 
-interface IrBase {
+export interface IrBase {
     kind: IrStmtType,
 }
 
@@ -30,10 +27,9 @@ export interface IrAssignmentStmt extends IrBase {
 
 export interface IrIfStmt extends IrBase {
     kind: IrStmtType.If,
-}
-
-export interface IrElseStmt extends IrBase {
-    kind: IrStmtType.Else,
+    condition: TrivialExpr,
+    body: IrBlock,
+    elseBody?: IrBlock,
 }
 
 export const enum LoopType {
@@ -46,7 +42,10 @@ export const enum LoopType {
 export interface IrLoopStmt extends IrBase {
     kind: IrStmtType.Loop,
     loopType: LoopType,
+    expr: TrivialExpr,
+    body: IrBlock,
 }
+
 
 export interface IrContinueStmt extends IrBase {
     kind: IrStmtType.Continue,
@@ -54,14 +53,6 @@ export interface IrContinueStmt extends IrBase {
 
 export interface IrBreakStmt extends IrBase {
     kind: IrStmtType.Break,
-}
-
-export interface IrStartBlockStmt extends IrBase {
-    kind: IrStmtType.StartBlock,
-}
-
-export interface IrEndBlockStmt extends IrBase {
-    kind: IrStmtType.EndBlock,
 }
 
 export interface IrReturnStmt extends IrBase {
@@ -78,12 +69,9 @@ export type IrStmt =
     IrAssignmentStmt |
     IrReturnStmt |
     IrIfStmt |
-    IrElseStmt |
     IrLoopStmt |
     IrContinueStmt |
     IrBreakStmt |
-    IrStartBlockStmt |
-    IrEndBlockStmt |
     IrFunctionDeclarationStmt
 ;
 
@@ -97,31 +85,25 @@ export class IrLabel {
     }
 }
 
-export function stmtToString(stmt: IrStmt, indentation = 0) {
-    const i = ' '.repeat(indentation * 4);
+export function stmtToString(stmt: IrStmt) {
     switch (stmt.kind) {
         case IrStmtType.Assignment: {
-            return `${i}${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
+            return `${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Return: {
-            return `${i}return ${exprToString(stmt.expr)}`;
+            return `return ${exprToString(stmt.expr)}`;
         }
-        case IrStmtType.If: return `${i}if`;
-        case IrStmtType.Else: return `${i}else`;
+        case IrStmtType.If: return `if ${exprToString(stmt.condition)} :${stmt.body.id}${stmt.elseBody ? (' else :' + stmt.elseBody.id) : ''}`;
         case IrStmtType.Loop: switch (stmt.loopType) {
-            case LoopType.While: return `${i}while`;
-            case LoopType.DoWhile: return `${i}do while`;
-            case LoopType.ForIn: return `${i}for in`;
-            case LoopType.ForOf: return `${i}for of`;
+            case LoopType.While: return `while ${exprToString(stmt.expr)} :${stmt.body.id}`;
+            case LoopType.DoWhile: return `do while ${exprToString(stmt.expr)} :${stmt.body.id}`;
+            case LoopType.ForIn: return `for in ${exprToString(stmt.expr)} :${stmt.body.id}`;
+            case LoopType.ForOf: return `for of ${exprToString(stmt.expr)} :${stmt.body.id}`;
         }
-        case IrStmtType.Continue: return `${i}continue`;
-        case IrStmtType.Break: return `${i}break`;
-        case IrStmtType.StartBlock: return `${i}start`;
-        case IrStmtType.EndBlock: return `${i}end`;
+        case IrStmtType.Continue: return `continue`;
+        case IrStmtType.Break: return `break`;
         case IrStmtType.FunctionDeclaration: {
-            return `${i}${stmt.def.description()}\n`
-                + stmt.def.body.body.map((childStmt) => stmtToString(childStmt, indentation + 1)).join('\n')
-            ;
+            return `${stmt.def.description()}`;
         }
     }
 }
