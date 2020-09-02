@@ -17,6 +17,13 @@ function globDir(dir: string, pattern: string): string[] {
     return results;
 }
 
+/**
+ * This automatically generates test cases for files in tests/ir/ which
+ * verify the compilation of JS into WWIR.
+ *
+ * Input: X.in.js
+ * Expected WWIR output: X.out.ww
+ */
 describe('WWIR compilation tests', () => {
     for (const testPath of globDir(path.join('tests', 'ir'), '.*\.in\.js')) {
         test(`${testPath.substr('tests/ir/'.length)}`, () => {

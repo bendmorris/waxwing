@@ -1,0 +1,17 @@
+0:
+while true :1
+$1 = true || false
+while $1 :2
+$3 = true && false
+do while $3 :3
+
+1:
+$0 = log("loop body 1")
+break
+
+2:
+$2 = log("loop body 2")
+continue
+
+3:
+$4 = log("loop body 3")

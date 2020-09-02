@@ -263,6 +263,8 @@ export function irCompile(body: Ast[]): ir.IrProgram {
     const ctx = new IrScope(program, ScopeType.FunctionScope);
     const block = program.block();
     // TODO: we need an initial pass to find `var` and function declarations...
+    // the initial pass should attach persistent scopes to the AST statements,
+    // which also need to be attached to the blocks themselves
     for (const ast of body) {
         compileStmt(ctx, block, ast);
     }

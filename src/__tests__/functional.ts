@@ -17,6 +17,13 @@ function globDir(dir: string, pattern: string): string[] {
     return results;
 }
 
+/**
+ * This automatically generates test cases for files in tests/functional/ which
+ * verify the compilation end-to-end.
+ *
+ * Input: X.in.js
+ * Expected JS output: X.out.js
+ */
 describe('functional tests', () => {
     for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
         test(`${testPath.substr('tests/functional/'.length)}`, () => {

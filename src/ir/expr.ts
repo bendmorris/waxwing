@@ -125,7 +125,7 @@ export interface IrUnopExpr {
     kind: IrExprType.Unop,
     operator: UnaryOperator,
     prefix: boolean,
-    expr: Expr,
+    expr: TrivialExpr,
 }
 
 export function exprUnop(operator: UnaryOperator, prefix: boolean, expr: TrivialExpr): IrUnopExpr {
@@ -152,8 +152,8 @@ export type BinaryOperator =
 export interface IrBinopExpr {
     kind: IrExprType.Binop,
     operator: BinaryOperator,
-    left: Expr,
-    right: Expr,
+    left: TrivialExpr,
+    right: TrivialExpr,
 }
 
 export function exprBinop(operator: BinaryOperator, left: TrivialExpr, right: TrivialExpr): IrBinopExpr {

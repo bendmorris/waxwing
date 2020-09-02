@@ -1,6 +1,5 @@
 import { Lvalue, lvalueToString } from './lvalue';
 import { Expr, TrivialExpr, exprToString } from './expr';
-import { assert } from 'console';
 import { IrBlock } from './block';
 import { FunctionDefinition } from './function';
 // import { Constraint } from './constraint';
@@ -85,7 +84,7 @@ export class IrLabel {
     }
 }
 
-export function stmtToString(stmt: IrStmt) {
+export function stmtToString(stmt: IrStmt): string {
     switch (stmt.kind) {
         case IrStmtType.Assignment: {
             return `${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
