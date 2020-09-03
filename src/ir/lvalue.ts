@@ -1,19 +1,24 @@
 import { TrivialExpr, exprToString } from './expr';
 
+export interface LocalVar {
+    blockId: number,
+    varId: number,
+};
+
 export const enum LvalueType {
     Local,
     Global,
 }
 
-export interface LvalueLocal {
+export interface LvalueLocal extends LocalVar {
     kind: LvalueType.Local,
-    id: number,
 }
 
-export function lvalueLocal(id: number): LvalueLocal {
+export function lvalueLocal(blockId: number, varId: number): LvalueLocal {
     return {
         kind: LvalueType.Local,
-        id,
+        blockId,
+        varId,
     };
 }
 
@@ -33,7 +38,7 @@ export type Lvalue = LvalueLocal | LvalueGlobal;
 
 export function lvalueToString(lvalue: Lvalue) {
     switch (lvalue.kind) {
-        case LvalueType.Local: return `$${lvalue.id}`;
+        case LvalueType.Local: return `$${lvalue.blockId}:${lvalue.varId}`;
         case LvalueType.Global: return lvalue.name;
     }
 }

@@ -32,7 +32,8 @@ export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
 export function applyToExprsInBlock(f: TrivialExprCallback, block: IrBlock) {
     for (const stmt of block.body) {
         switch (stmt.kind) {
-            case IrStmtType.Assignment: {
+            case IrStmtType.Assignment:
+            case IrStmtType.ExprStmt: {
                 applyToExprsInExpr(f, stmt.expr);
                 break;
             }

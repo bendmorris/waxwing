@@ -1,7 +1,7 @@
 0:
-function helloWorld() :1
-$2 = helloWorld()
+function helloWorld() =>1
+$0:0 = helloWorld()
 
 1:
-$0 = console["log"]
-$1 = $0("hello, world!")
+$1:0 = console["log"]
+$1:1 = $1:0("hello, world!")

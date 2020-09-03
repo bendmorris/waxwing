@@ -28,6 +28,6 @@ export class FunctionDefinition {
         if (this.restParam) {
             args.push('...' + this.restParam);
         }
-        return `function${this.name ? (' ' + this.name) : ''}(${args.join(', ')}) :${this.body.id}`;
+        return `function${this.name ? (' ' + this.name) : ''}(${args.join(', ')}) =>${this.body.id}`;
     }
 }

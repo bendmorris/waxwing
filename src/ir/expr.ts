@@ -53,10 +53,10 @@ export interface IrIdentifierExpr {
     lvalue: Lvalue,
 }
 
-export function exprIdentifierLocal(id: number): IrIdentifierExpr {
+export function exprIdentifierLocal(blockId: number, varId: number): IrIdentifierExpr {
     return {
         kind: IrExprType.Identifier,
-        lvalue: lvalueLocal(id),
+        lvalue: lvalueLocal(blockId, varId),
     };
 }
 

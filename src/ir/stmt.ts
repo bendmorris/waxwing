@@ -5,6 +5,7 @@ import { FunctionDefinition } from './function';
 // import { Constraint } from './constraint';
 
 export const enum IrStmtType {
+    ExprStmt,
     Assignment,
     Return,
     If,
@@ -16,6 +17,12 @@ export const enum IrStmtType {
 
 export interface IrBase {
     kind: IrStmtType,
+}
+
+
+export interface IrExprStmt extends IrBase {
+    kind: IrStmtType.ExprStmt,
+    expr: Expr,
 }
 
 export interface IrAssignmentStmt extends IrBase {
@@ -65,6 +72,7 @@ export interface IrFunctionDeclarationStmt extends IrBase {
 }
 
 export type IrStmt =
+    IrExprStmt |
     IrAssignmentStmt |
     IrReturnStmt |
     IrIfStmt |
@@ -74,30 +82,23 @@ export type IrStmt =
     IrFunctionDeclarationStmt
 ;
 
-export class IrLabel {
-    id: number;
-    offset: number;
-
-    constructor(id: number) {
-        this.id = id;
-        this.offset = -1;
-    }
-}
-
 export function stmtToString(stmt: IrStmt): string {
     switch (stmt.kind) {
+        case IrStmtType.ExprStmt: {
+            return exprToString(stmt.expr);
+        }
         case IrStmtType.Assignment: {
             return `${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;
         }
-        case IrStmtType.If: return `if ${exprToString(stmt.condition)} :${stmt.body.id}${stmt.elseBody ? (' else :' + stmt.elseBody.id) : ''}`;
+        case IrStmtType.If: return `if ${exprToString(stmt.condition)} =>${stmt.body.id}${stmt.elseBody ? (' else =>' + stmt.elseBody.id) : ''}`;
         case IrStmtType.Loop: switch (stmt.loopType) {
-            case LoopType.While: return `while ${exprToString(stmt.expr)} :${stmt.body.id}`;
-            case LoopType.DoWhile: return `do while ${exprToString(stmt.expr)} :${stmt.body.id}`;
-            case LoopType.ForIn: return `for in ${exprToString(stmt.expr)} :${stmt.body.id}`;
-            case LoopType.ForOf: return `for of ${exprToString(stmt.expr)} :${stmt.body.id}`;
+            case LoopType.While: return `while ${exprToString(stmt.expr)} =>${stmt.body.id}`;
+            case LoopType.DoWhile: return `do while ${exprToString(stmt.expr)} =>${stmt.body.id}`;
+            case LoopType.ForIn: return `for in ${exprToString(stmt.expr)} =>${stmt.body.id}`;
+            case LoopType.ForOf: return `for of ${exprToString(stmt.expr)} =>${stmt.body.id}`;
         }
         case IrStmtType.Continue: return `continue`;
         case IrStmtType.Break: return `break`;

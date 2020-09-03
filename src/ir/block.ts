@@ -4,23 +4,21 @@ import { lvalueLocal } from './lvalue';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
+import { throwStatement } from '@babel/types';
 
 class StatementBuilder<T extends s.IrBase> {
+    block: IrBlock;
     program: IrProgram;
     stmt: T;
 
-    constructor(program: IrProgram, stmt: T) {
-        this.program = program;
+    constructor(block: IrBlock, stmt: T) {
+        this.block = block;
+        this.program = block.program;
         this.stmt = stmt;
     }
 }
 
-export class AssignmentBuilder extends StatementBuilder<s.IrAssignmentStmt> {
-    local(id: number) {
-        this.stmt.lvalue = lvalueLocal(id);
-        return this;
-    }
-
+class BaseExprBuilder<T extends s.IrBase & { expr: e.Expr }> extends StatementBuilder<T> {
     expr(expr: e.Expr) {
         this.stmt.expr = expr;
         return this;
@@ -48,6 +46,15 @@ export class AssignmentBuilder extends StatementBuilder<s.IrAssignmentStmt> {
 
     call(callee: e.TrivialExpr, args: e.TrivialExpr[], isNew: boolean = false) {
         this.stmt.expr = e.exprCall(callee, args, isNew);
+        return this;
+    }
+}
+
+export class ExprStmtBuilder extends BaseExprBuilder<s.IrExprStmt> {}
+
+export class AssignmentBuilder extends BaseExprBuilder<s.IrAssignmentStmt> {
+    local(id: number) {
+        this.stmt.lvalue = lvalueLocal(this.block.id, id);
         return this;
     }
 }
@@ -82,51 +89,65 @@ export class IrBlock {
     id: number;
     program: IrProgram;
     body: s.IrStmt[];
+    ownLocals: Record<string, e.TrivialExpr>;
+    private _nextLocal: number;
 
     constructor(program: IrProgram) {
         this.id = -1;
         this.program = program;
         this.body = [];
+        // this.locals = {};
+        this._nextLocal = 0;
+    }
+
+    nextLocal(): number {
+        return this._nextLocal++;
     }
 
     push(stmt: s.IrStmt) {
         this.body.push(stmt);
     }
 
+    expr() {
+        const stmt = { kind: s.IrStmtType.ExprStmt, expr: undefined} as s.IrExprStmt;
+        this.push(stmt);
+        return new ExprStmtBuilder(this, stmt);
+    }
+
     assign() {
         const stmt = { kind: s.IrStmtType.Assignment, lvalue: undefined, expr: undefined} as s.IrAssignmentStmt;
         this.push(stmt);
-        return new AssignmentBuilder(this.program, stmt);
+        return new AssignmentBuilder(this, stmt);
     }
 
     if() {
         const stmt = { kind: s.IrStmtType.If, } as s.IrIfStmt;
         this.push(stmt);
-        return new IfBuilder(this.program, stmt);
+        return new IfBuilder(this, stmt);
     }
 
     while() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.While } as s.IrLoopStmt;
         this.push(stmt);
-        return new LoopBuilder(this.program, stmt);
+        return new LoopBuilder(this, stmt);
     }
 
     doWhile() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.DoWhile } as s.IrLoopStmt;
         this.push(stmt);
-        return new LoopBuilder(this.program, stmt);
+        return new LoopBuilder(this, stmt);
     }
 
     forIn() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.ForIn } as s.IrLoopStmt;
         this.push(stmt);
-        return new LoopBuilder(this.program, stmt);
+        return new LoopBuilder(this, stmt);
     }
 
     forOf() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.ForOf } as s.IrLoopStmt;
         this.push(stmt);
-        return new LoopBuilder(this.program, stmt);
+        return new LoopBuilder(this, stmt);
     }
 
     break() {

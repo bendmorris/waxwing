@@ -11,7 +11,7 @@ function isValidIdentifier(x) {
 function lvalueToAst(lvalue: ir.Lvalue): t.Expression {
     switch (lvalue.kind) {
         case ir.LvalueType.Local: {
-            return t.identifier(`_$${lvalue.id}`);
+            return t.identifier(`$${lvalue.blockId}_${lvalue.varId}`);
         }
         case ir.LvalueType.Global: {
             return t.identifier(lvalue.name);
@@ -30,20 +30,17 @@ function exprToAst(expr: ir.Expr): t.Expression {
         case ir.IrExprType.Binop: {
             switch (expr.operator) {
                 case '&&':
-                case '||': {
+                case '||':
+                case '??': {
                     return t.logicalExpression(expr.operator, exprToAst(expr.left), exprToAst(expr.right));
                 }
                 case ',': {
-                    throw new Error('TODO');
-                }
-                case '??': {
-                    throw new Error('TODO');
+                    return t.sequenceExpression([exprToAst(expr.left), exprToAst(expr.right)]);
                 }
                 default: {
                     return t.binaryExpression(expr.operator, exprToAst(expr.left), exprToAst(expr.right));
                 }
             }
-            throw new Error('TODO');
         }
         case ir.IrExprType.Call: {
             if (expr.isNew) {
@@ -92,7 +89,7 @@ function exprToAst(expr: ir.Expr): t.Expression {
             return t.thisExpression();
         }
         case ir.IrExprType.Unop: {
-            throw new Error('TODO');
+            return t.unaryExpression(expr.operator, exprToAst(expr.expr), expr.prefix);
         }
     }
 }
@@ -104,7 +101,7 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
             case ir.IrStmtType.Assignment: {
                 switch (stmt.lvalue.kind) {
                     case ir.LvalueType.Local: {
-                        stmts.push(t.expressionStatement(t.assignmentExpression('=', t.identifier('_$' + stmt.lvalue.id), exprToAst(stmt.expr))));
+                        stmts.push(t.expressionStatement(t.assignmentExpression('=', lvalueToAst(stmt.lvalue) as t.Identifier, exprToAst(stmt.expr))));
                         break;
                     }
                     default: throw new Error('TODO');
@@ -117,6 +114,10 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
             }
             case ir.IrStmtType.Continue: {
                 stmts.push(t.continueStatement());
+                break;
+            }
+            case ir.IrStmtType.ExprStmt: {
+                stmts.push(t.expressionStatement(exprToAst(stmt.expr)));
                 break;
             }
             case ir.IrStmtType.FunctionDeclaration: {
@@ -140,10 +141,6 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
             }
         }
     }
-    // skip unused, pure temp values
-    // turn unused, non-pure temp values into statements
-    // inline temporary values that are only used once, as long as they don't alter effect order
-    // allocate registers for all other temporary values, and replace references to them
     return stmts;
 }
 
