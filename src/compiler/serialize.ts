@@ -8,18 +8,28 @@ function isValidIdentifier(x) {
     return true;
 }
 
-function lvalueToAst(lvalue: ir.Lvalue): t.Expression {
+function lvalueToAst(block: ir.IrBlock, lvalue: ir.Lvalue): t.Expression {
     switch (lvalue.kind) {
-        case ir.LvalueType.Local: {
-            return t.identifier(`$${lvalue.blockId}_${lvalue.varId}`);
+        case ir.LvalueType.Temp: {
+            const meta = block.program.getBlock(lvalue.blockId).getTempMetadata(lvalue.varId);
+            if (!meta || !meta.definition) {
+                throw new Error(`Unrecognized temp variable: ${ir.lvalueToString(lvalue)}`);
+            }
+            return exprToAst(block, meta.definition);
         }
+        // case ir.LvalueType.Register: {
+        //     throw new Error("TODO");
+        // }
         case ir.LvalueType.Global: {
             return t.identifier(lvalue.name);
         }
     }
 }
 
-function exprToAst(expr: ir.Expr): t.Expression {
+function exprToAst(block: ir.IrBlock, expr: ir.Expr): t.Expression {
+    function recurse(expr: ir.Expr) {
+        return exprToAst(block, expr);
+    }
     switch (expr.kind) {
         case ir.IrExprType.Arguments: {
             return t.identifier('arguments');
@@ -29,13 +39,13 @@ function exprToAst(expr: ir.Expr): t.Expression {
                 case '&&':
                 case '||':
                 case '??': {
-                    return t.logicalExpression(expr.operator, exprToAst(expr.left), exprToAst(expr.right));
+                    return t.logicalExpression(expr.operator, recurse(expr.left), recurse(expr.right));
                 }
                 case ',': {
-                    return t.sequenceExpression([exprToAst(expr.left), exprToAst(expr.right)]);
+                    return t.sequenceExpression([recurse(expr.left), recurse(expr.right)]);
                 }
                 default: {
-                    return t.binaryExpression(expr.operator, exprToAst(expr.left), exprToAst(expr.right));
+                    return t.binaryExpression(expr.operator, recurse(expr.left), recurse(expr.right));
                 }
             }
         }
@@ -43,7 +53,7 @@ function exprToAst(expr: ir.Expr): t.Expression {
             if (expr.isNew) {
                 throw new Error('TODO');
             } else {
-                return t.callExpression(exprToAst(expr.callee), expr.args.map(exprToAst));
+                return t.callExpression(recurse(expr.callee), expr.args.map(recurse));
             }
         }
         case ir.IrExprType.EmptyArray: {
@@ -59,7 +69,7 @@ function exprToAst(expr: ir.Expr): t.Expression {
             return t.identifier('globalThis');
         }
         case ir.IrExprType.Identifier: {
-            return lvalueToAst(expr.lvalue);
+            return lvalueToAst(block, expr.lvalue);
         }
         case ir.IrExprType.Literal: {
             if (expr.value === null) {
@@ -78,9 +88,9 @@ function exprToAst(expr: ir.Expr): t.Expression {
         }
         case ir.IrExprType.Property: {
             if (expr.property.kind === ir.IrExprType.Literal && typeof expr.property.value === 'string' && t.isValidIdentifier(expr.property.value)) {
-                return t.memberExpression(exprToAst(expr.expr), t.identifier(expr.property.value), false);
+                return t.memberExpression(recurse(expr.expr), t.identifier(expr.property.value), false);
             }
-            return t.memberExpression(exprToAst(expr.expr), exprToAst(expr.property), true);
+            return t.memberExpression(recurse(expr.expr), recurse(expr.property), true);
         }
         case ir.IrExprType.Raw: {
             return expr.ast as t.Expression;
@@ -89,19 +99,21 @@ function exprToAst(expr: ir.Expr): t.Expression {
             return t.thisExpression();
         }
         case ir.IrExprType.Unop: {
-            return t.unaryExpression(expr.operator, exprToAst(expr.expr), expr.prefix);
+            return t.unaryExpression(expr.operator, recurse(expr.expr), expr.prefix);
         }
     }
 }
 
 function blockToAst(block: ir.IrBlock): t.Statement[] {
+    const program = block.program;
     const stmts = [];
     for (const stmt of block.body) {
         switch (stmt.kind) {
             case ir.IrStmtType.Assignment: {
                 switch (stmt.lvalue.kind) {
-                    case ir.LvalueType.Local: {
-                        stmts.push(t.expressionStatement(t.assignmentExpression('=', lvalueToAst(stmt.lvalue) as t.Identifier, exprToAst(stmt.expr))));
+                    case ir.LvalueType.Temp: {
+                        // we don't need to touch temp values; they will either
+                        // be promoted to registers, or inlined
                         break;
                     }
                     default: throw new Error('TODO');
@@ -117,14 +129,14 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
                 break;
             }
             case ir.IrStmtType.ExprStmt: {
-                stmts.push(t.expressionStatement(exprToAst(stmt.expr)));
+                stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
                 break;
             }
             case ir.IrStmtType.FunctionDeclaration: {
                 const bodyStmts = blockToAst(stmt.def.body);
                 stmts.push(t.functionDeclaration(
                     t.identifier(stmt.def.name),
-                    stmt.def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(ir.exprLiteral(arg.defaultValue)))),
+                    stmt.def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(block, ir.exprLiteral(arg.defaultValue)))),
                     t.blockStatement(bodyStmts)
                 ));
                 break;
@@ -136,7 +148,7 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
                 throw new Error('TODO');
             }
             case ir.IrStmtType.Return: {
-                stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(stmt.expr)));
+                stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(block, stmt.expr)));
                 break;
             }
         }

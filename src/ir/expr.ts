@@ -1,5 +1,5 @@
 import { Ast } from '../ast';
-import { Lvalue, LvalueLocal, lvalueLocal, lvalueToString, lvalueGlobal } from './lvalue';
+import { Lvalue, LvalueTemp, lvalueTemp, lvalueToString, lvalueGlobal } from './lvalue';
 import { IrBlock } from './block';
 import { FunctionDefinition } from './function';
 import { string } from 'yargs';
@@ -53,23 +53,24 @@ export interface IrIdentifierExpr {
     lvalue: Lvalue,
 }
 
-export function exprIdentifierLocal(blockId: number, varId: number): IrIdentifierExpr {
+export function exprIdentifier(lvalue: Lvalue): IrIdentifierExpr {
     return {
         kind: IrExprType.Identifier,
-        lvalue: lvalueLocal(blockId, varId),
+        lvalue,
     };
 }
 
+export function exprIdentifierTemp(blockId: number, varId: number): IrIdentifierExpr {
+    return exprIdentifier(lvalueTemp(blockId, varId));
+}
+
 export function exprIdentifierGlobal(name: string): IrIdentifierExpr {
-    return {
-        kind: IrExprType.Identifier,
-        lvalue: lvalueGlobal(name),
-    };
+    return exprIdentifier(lvalueGlobal(name));
 }
 
 export interface IrPhiExpr {
     kind: IrExprType.Phi,
-    lvalues: LvalueLocal[],
+    lvalues: LvalueTemp[],
 }
 
 export interface IrThisExpr {
@@ -207,7 +208,7 @@ export function exprCall(callee: TrivialExpr, args: TrivialExpr[], isNew: boolea
 
 /**
  * In WWIR, an Expr is a compound expression composed of multiple TrivialExprs.
- * To create statements, these must be decomposed by assigning to locals.
+ * To create statements, these must be decomposed by assigning to temps.
  */
 export type Expr = TrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr;
 

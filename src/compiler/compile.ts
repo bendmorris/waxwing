@@ -70,17 +70,19 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }
-    function local(id: number) {
-        return ir.exprIdentifierLocal(block.id, id);
+    function temp(id: number) {
+        return ir.exprIdentifierTemp(block.id, id);
     }
     switch (ast.type) {
         case 'Identifier': {
             const found = ctx.findScopeWithBinding(ast.name);
             if (found) {
-                return local(ctx.getBinding(ast));
-            } else {
-                return ir.exprIdentifierGlobal(ast.name);
+                const binding = found.getBinding(ast);
+                if (binding !== undefined) {
+                    return temp(binding);
+                }
             }
+            return ir.exprIdentifierGlobal(ast.name);
         }
         case 'NumericLiteral':
         case 'BooleanLiteral':
@@ -92,9 +94,9 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
         }
         case 'UnaryExpression': {
             const decomposed = decompose(ast.argument);
-            const id = block.nextLocal();
-            block.assign().local(id).unop(ast.operator, ast.prefix, decomposed);
-            return local(id);
+            const id = block.nextTemp();
+            block.assign().temp(id).unop(ast.operator, ast.prefix, decomposed).finish();
+            return temp(id);
         }
         // case 'UpdateExpression': {
         //     const updateOps: Record<string, BinaryOperator> = {
@@ -104,54 +106,54 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
         //     if (ast.prefix) {
         //         // prefix: provide the original value, and also update it
         //         const decomposed = decompose(ast.argument);
-        //         const id = ctx.nextLocal();
-        //         block.assign().local(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1));
+        //         const id = ctx.nextTemp();
+        //         block.assign().temp(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1)).finish();
         //         // TODO: update binding
-        //         return ir.exprIdentifierLocal(id);
+        //         return ir.exprIdentifierTemp(id);
         //     } else {
         //         // suffix: update the value and use that new identifier
         //         const decomposed = decompose(ast.argument);
-        //         const id = ctx.nextLocal();
-        //         block.assign().local(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1));
+        //         const id = ctx.nextTemp();
+        //         block.assign().temp(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1)).finish();
         //         // TODO: update binding
-        //         return ir.exprIdentifierLocal(id);
+        //         return ir.exprIdentifierTemp(id);
         //     }
         // }
         case 'BinaryExpression':
         case 'LogicalExpression': {
             const decomposedLeft = decompose(ast.left),
                  decomposedRight = decompose(ast.right);
-            const id = block.nextLocal();
-            block.assign().local(id).binop(ast.operator, decomposedLeft, decomposedRight);
-            return local(id);
+            const id = block.nextTemp();
+            block.assign().temp(id).binop(ast.operator, decomposedLeft, decomposedRight).finish();
+            return temp(id);
         }
         case 'CallExpression':
         case 'NewExpression': {
             const callee = decompose(ast.callee),
                 args = ast.arguments.map(decompose);
-            const id = block.nextLocal();
-            block.assign().local(id).call(callee, args, ast.type === 'NewExpression');
-            return local(id);
+            const id = block.nextTemp();
+            block.assign().temp(id).call(callee, args, ast.type === 'NewExpression').finish();
+            return temp(id);
         }
         case 'MemberExpression': {
             const expr = decompose(ast.object),
                 prop = ast.computed ? decompose(ast.property) : ir.exprLiteral((ast.property as t.Identifier).name);
-            const id = block.nextLocal();
-            block.assign().local(id).property(expr, prop);
-            return local(id);
+            const id = block.nextTemp();
+            block.assign().temp(id).property(expr, prop).finish();
+            return temp(id);
         }
         case 'ArrayExpression': {
-            const id = block.nextLocal();
-            block.assign().local(id).expr(ir.exprEmptyArray());
+            const id = block.nextTemp();
+            block.assign().temp(id).expr(ir.exprEmptyArray()).finish();
             for (const value of ast.elements) {
                 const val = decompose(value);
-                block.set().local(id).expr(val);
+                block.set().temp(id).expr(val).finish();
             }
-            return local(id);
+            return temp(id);
         }
         case 'ObjectExpression': {
-            const id = block.nextLocal();
-            block.assign().local(id).expr(ir.exprEmptyObject());
+            const id = block.nextTemp();
+            block.assign().temp(id).expr(ir.exprEmptyObject()).finish();
             for (const value of ast.properties) {
                 switch (value.type) {
                     case 'ObjectMethod': {
@@ -161,7 +163,7 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
                     case 'ObjectProperty': {
                         const key = value.key.type == 'Identifier' ? ir.exprLiteral(value.key.name) : decompose(value.key);
                         const val = decompose(value.value);
-                        block.set().local(id).propertyName(key).expr(val);
+                        block.set().temp(id).propertyName(key).expr(val).finish();
                         break;
                     }
                     case 'SpreadElement': {
@@ -170,7 +172,7 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
                     }
                 }
             }
-            return local(id);
+            return temp(id);
         }
     }
     // we don't know what this is, so treat it as an opaque, effectful expression
@@ -202,8 +204,8 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                     case 'Identifier': {
                         const decomposed = decl.init ? decompose(decl.init) : ir.exprLiteral(undefined);
                         if (decomposed.kind !== ir.IrExprType.Identifier) {
-                            const id = block.nextLocal();
-                            block.assign().local(id).expr(decomposed);
+                            const id = block.nextTemp();
+                            block.assign().temp(id).expr(decomposed).finish();
                             if (ast.kind === 'var') {
                                 ctx.functionScope.setBinding(decl.id, id);
                             } else {
@@ -227,6 +229,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             if (ast.alternate) {
                 compileStmt(ctx.childBlock(), stmt.else(), ast.alternate);
             }
+            stmt.finish();
             break;
         }
         case 'ForStatement': {
@@ -237,6 +240,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             const body = stmt.body();
             compileStmt(ctx.childBlock(), body, ast.body);
             compileStmt(ctx, body, ast.update);
+            stmt.finish();
             break;
         }
         // TODO
@@ -252,6 +256,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             const stmt = ast.type === 'DoWhileStatement' ? block.doWhile() : block.while();
             stmt.expr(condition);
             compileStmt(ctx.childBlock(), stmt.body(), ast.body);
+            stmt.finish();
             break;
         }
         case 'BreakStatement': {
@@ -280,7 +285,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
         default: {
             const decomposed = decompose(ast);
             if (decomposed.kind !== ir.IrExprType.Identifier) {
-                block.assign().local(block.nextLocal()).expr(decomposed);
+                block.assign().temp(block.nextTemp()).expr(decomposed).finish();
             }
         }
     }

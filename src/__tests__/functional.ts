@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { parseFile } from '../ast';
 import { compile } from '../compiler';
+import { irCompile } from '../compiler/compile';
 import { Options, makeOptions } from '../options';
 
 function globDir(dir: string, pattern: string): string[] {
@@ -23,21 +25,40 @@ function normalize(s) {
 
 /**
  * This automatically generates test cases for files in tests/functional/ which
- * verify the compilation end-to-end.
+ * verify specific stages of compilation.
  *
  * Input: X.in.js
+ * Expected WWIR output: X.out.ww
  * Expected JS output: X.out.js
  */
 describe('functional tests', () => {
     for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
-        test(`${testPath.substr('tests/functional/'.length)}`, () => {
-            // TODO: overridable options
-            const options: Options = makeOptions({
-                input: testPath,
-            });
-            const out = normalize(compile(options));
-            const check = normalize(fs.readFileSync(testPath.replace(/\.in\.js$/, '.out.js')).toString());
-            expect(out).toEqual(check);
-        });
+        // WWIR
+        {
+            const outFile = testPath.replace(/\.in\.js$/, '.out.ww');
+            if (fs.existsSync(outFile)) {
+                test(`${testPath.substr('tests/functional/'.length)} -> WWIR`, () => {
+                    const ast = parseFile(testPath);
+                    const out = irCompile(ast).toString();
+                    const check = fs.readFileSync(outFile).toString();
+                    expect(out).toEqual(check);
+                });
+            }
+        }
+        // JS
+        {
+            const outFile = testPath.replace(/\.in\.js$/, '.out.js');
+            if (fs.existsSync(outFile)) {
+                test(`${testPath.substr('tests/functional/'.length)} -> JS`, () => {
+                    // TODO: overridable options
+                    const options: Options = makeOptions({
+                        input: testPath,
+                    });
+                    const out = normalize(compile(options));
+                    const check = normalize(fs.readFileSync(outFile).toString());
+                    expect(out).toEqual(check);
+                });
+            }
+        }
     }
 });

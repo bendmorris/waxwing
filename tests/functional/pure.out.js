@@ -1,3 +1,3 @@
 function f() {
-    return 7;
+    return 1;
 }

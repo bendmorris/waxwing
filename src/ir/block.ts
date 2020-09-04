@@ -1,12 +1,13 @@
 import * as s from './stmt';
 import * as e from './expr';
-import { lvalueLocal } from './lvalue';
+import * as u from './utils';
+import { lvalueTemp, LvalueType } from './lvalue';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
 import { throwStatement } from '@babel/types';
 
-class StatementBuilder<T extends s.IrBase> {
+class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
     program: IrProgram;
     stmt: T;
@@ -16,9 +17,13 @@ class StatementBuilder<T extends s.IrBase> {
         this.program = block.program;
         this.stmt = stmt;
     }
+
+    finish() {
+        this.block.push(this.stmt);
+    }
 }
 
-class BaseExprBuilder<T extends s.IrBase & { expr: e.Expr }> extends StatementBuilder<T> {
+class BaseExprBuilder<T extends s.IrStmt & { expr: e.Expr }> extends StatementBuilder<T> {
     expr(expr: e.Expr) {
         this.stmt.expr = expr;
         return this;
@@ -53,15 +58,15 @@ class BaseExprBuilder<T extends s.IrBase & { expr: e.Expr }> extends StatementBu
 export class ExprStmtBuilder extends BaseExprBuilder<s.IrExprStmt> {}
 
 export class AssignmentBuilder extends BaseExprBuilder<s.IrAssignmentStmt> {
-    local(id: number) {
-        this.stmt.lvalue = lvalueLocal(this.block.id, id);
+    temp(id: number) {
+        this.stmt.lvalue = lvalueTemp(this.block.id, id);
         return this;
     }
 }
 
 export class SetBuilder extends BaseExprBuilder<s.IrSetStmt> {
-    local(id: number) {
-        this.stmt.lvalue = lvalueLocal(this.block.id, id);
+    temp(id: number) {
+        this.stmt.lvalue = lvalueTemp(this.block.id, id);
         return this;
     }
 
@@ -99,79 +104,131 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
 
 export interface IrStmtMetadata {
     id: number,
+    dead: boolean,
+}
+
+export interface IrTempMetadata {
+    varId: number,
+    references: s.IrStmt[],
+    definition?: e.Expr,
+    inlined: boolean,
 }
 
 export class IrBlock {
     id: number;
     program: IrProgram;
     body: s.IrStmt[];
-    ownLocals: Record<string, e.TrivialExpr>;
-    references: Record<number, s.IrStmt[]>;
-    private _nextLocal: number;
+    splits: s.IrStmt[];
+    temps: Record<number, IrTempMetadata>;
+    private _nextTemp: number;
 
     constructor(program: IrProgram) {
         this.id = -1;
         this.program = program;
         this.body = [];
-        this.ownLocals = {};
-        this.references = {};
-        this._nextLocal = 0;
+        this.temps = {};
+        this._nextTemp = 0;
     }
 
-    nextLocal(): number {
-        return this._nextLocal++;
+    getTempMetadata(varId: number) {
+        return this.temps[varId];
+    }
+
+    addReference(varId: number, stmt: s.IrStmt) {
+        this.getTempMetadata(varId).references.push(stmt);
+    }
+
+    nextTemp(): number {
+        const varId = this._nextTemp++;
+        const meta = {
+            varId,
+            references: [],
+            definition: undefined,
+            inlined: false,
+        };
+        this.temps[varId] = meta;
+        return varId;
     }
 
     push(stmt: s.IrStmt & Partial<IrStmtMetadata>) {
         stmt.id = this.body.length;
+        Object.assign(stmt, {
+            dead: false,
+        });
+        let assignedTemp = -1;
+        switch (stmt.kind) {
+            case s.IrStmtType.Assignment: {
+                switch (stmt.lvalue.kind) {
+                    case LvalueType.Temp: {
+                        if (stmt.lvalue.varId === undefined) {
+                            throw new TypeError("Attempting to assign undefined variable");
+                        }
+                        assignedTemp = stmt.lvalue.varId;
+                        this.temps[assignedTemp].definition = stmt.expr;
+                        break;
+                    }
+                    default: {}
+                }
+                break;
+            }
+        }
+        u.applyToExprsInStmt((expr) => {
+            switch (expr.kind) {
+                case e.IrExprType.Identifier: {
+                    switch (expr.lvalue.kind) {
+                        case LvalueType.Temp: {
+                            if (expr.lvalue.varId !== assignedTemp) {
+                                this.program.getBlock(expr.lvalue.blockId).addReference(expr.lvalue.varId, stmt);
+                            }
+                            break;
+                        }
+                        default: {}
+                    }
+                    break;
+                }
+                default: {}
+            }
+        }, stmt);
         this.body.push(stmt);
     }
 
     expr() {
         const stmt = { kind: s.IrStmtType.ExprStmt, expr: undefined} as s.IrExprStmt;
-        this.push(stmt);
         return new ExprStmtBuilder(this, stmt);
     }
 
     assign() {
         const stmt = { kind: s.IrStmtType.Assignment, lvalue: undefined, expr: undefined} as s.IrAssignmentStmt;
-        this.push(stmt);
         return new AssignmentBuilder(this, stmt);
     }
 
     set() {
         const stmt = { kind: s.IrStmtType.Set, lvalue: undefined, property: undefined, expr: undefined} as s.IrSetStmt;
-        this.push(stmt);
         return new SetBuilder(this, stmt);
     }
 
     if() {
         const stmt = { kind: s.IrStmtType.If, } as s.IrIfStmt;
-        this.push(stmt);
         return new IfBuilder(this, stmt);
     }
 
     while() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.While } as s.IrLoopStmt;
-        this.push(stmt);
         return new LoopBuilder(this, stmt);
     }
 
     doWhile() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.DoWhile } as s.IrLoopStmt;
-        this.push(stmt);
         return new LoopBuilder(this, stmt);
     }
 
     forIn() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.ForIn } as s.IrLoopStmt;
-        this.push(stmt);
         return new LoopBuilder(this, stmt);
     }
 
     forOf() {
         const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.ForOf } as s.IrLoopStmt;
-        this.push(stmt);
         return new LoopBuilder(this, stmt);
     }
 
