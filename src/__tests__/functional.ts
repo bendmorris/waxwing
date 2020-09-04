@@ -17,6 +17,10 @@ function globDir(dir: string, pattern: string): string[] {
     return results;
 }
 
+function normalize(s) {
+    return s.replace(/\n+/g, '\n').replace(/ +/g, ' ');
+}
+
 /**
  * This automatically generates test cases for files in tests/functional/ which
  * verify the compilation end-to-end.
@@ -31,8 +35,8 @@ describe('functional tests', () => {
             const options: Options = makeOptions({
                 input: testPath,
             });
-            const out = compile(options);
-            const check = fs.readFileSync(testPath.replace(/\.in\.js$/, '.out.js')).toString();
+            const out = normalize(compile(options));
+            const check = normalize(fs.readFileSync(testPath.replace(/\.in\.js$/, '.out.js')).toString());
             expect(out).toEqual(check);
         });
     }

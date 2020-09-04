@@ -24,9 +24,6 @@ function exprToAst(expr: ir.Expr): t.Expression {
         case ir.IrExprType.Arguments: {
             return t.identifier('arguments');
         }
-        case ir.IrExprType.Array: {
-            throw new Error('TODO');
-        }
         case ir.IrExprType.Binop: {
             switch (expr.operator) {
                 case '&&':
@@ -48,6 +45,12 @@ function exprToAst(expr: ir.Expr): t.Expression {
             } else {
                 return t.callExpression(exprToAst(expr.callee), expr.args.map(exprToAst));
             }
+        }
+        case ir.IrExprType.EmptyArray: {
+            return t.arrayExpression([]);
+        }
+        case ir.IrExprType.EmptyObject: {
+            return t.objectExpression([]);
         }
         case ir.IrExprType.Function: {
             throw new Error('TODO');
@@ -72,9 +75,6 @@ function exprToAst(expr: ir.Expr): t.Expression {
             } else {
                 throw new TypeError(`unsupported literal value: ${expr.value}`);
             }
-        }
-        case ir.IrExprType.Object: {
-            throw new Error('TODO');
         }
         case ir.IrExprType.Property: {
             if (expr.property.kind === ir.IrExprType.Literal && typeof expr.property.value === 'string' && t.isValidIdentifier(expr.property.value)) {
@@ -149,6 +149,6 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
  */
 export function irSerialize(program: ir.IrProgram): string {
     const node = t.program(blockToAst(program.blocks[0]));
-    const { code } = babel.transformFromAstSync(node, undefined, {});
+    const { code } = babel.transformFromAstSync(node, undefined, { });
     return code + '\n';
 }
