@@ -1,7 +1,7 @@
 import { Options } from '../options';
 import { Ast, parseFile } from '../ast';
-import { irCompile } from './compile';
-import { irSerialize } from './serialize';
+import { irCompile } from './irCompile';
+import { irSerialize } from './irSerialize';
 import { program } from '@babel/types';
 
 /**

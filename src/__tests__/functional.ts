@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { parseFile } from '../ast';
 import { compile } from '../compiler';
-import { irCompile } from '../compiler/compile';
+import { irCompile } from '../compiler/irCompile';
 import { Options, makeOptions } from '../options';
 
 function globDir(dir: string, pattern: string): string[] {
