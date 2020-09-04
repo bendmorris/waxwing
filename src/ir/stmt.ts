@@ -7,6 +7,7 @@ import { FunctionDefinition } from './function';
 export const enum IrStmtType {
     ExprStmt,
     Assignment,
+    Set,
     Return,
     If,
     Loop,
@@ -31,6 +32,13 @@ export interface IrAssignmentStmt extends IrBase {
     expr: Expr,
 }
 
+export interface IrSetStmt extends IrBase {
+    kind: IrStmtType.Set,
+    lvalue: Lvalue,
+    property?: TrivialExpr,
+    expr: TrivialExpr,
+}
+
 export interface IrIfStmt extends IrBase {
     kind: IrStmtType.If,
     condition: TrivialExpr,
@@ -51,7 +59,6 @@ export interface IrLoopStmt extends IrBase {
     expr: TrivialExpr,
     body: IrBlock,
 }
-
 
 export interface IrContinueStmt extends IrBase {
     kind: IrStmtType.Continue,
@@ -74,6 +81,7 @@ export interface IrFunctionDeclarationStmt extends IrBase {
 export type IrStmt =
     IrExprStmt |
     IrAssignmentStmt |
+    IrSetStmt |
     IrReturnStmt |
     IrIfStmt |
     IrLoopStmt |
@@ -89,6 +97,9 @@ export function stmtToString(stmt: IrStmt): string {
         }
         case IrStmtType.Assignment: {
             return `${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
+        }
+        case IrStmtType.Set: {
+            return `${lvalueToString(stmt.lvalue)}[${stmt.property ? exprToString(stmt.property) : ''}] = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;

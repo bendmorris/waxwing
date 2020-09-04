@@ -140,6 +140,38 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
             block.assign().local(id).property(expr, prop);
             return local(id);
         }
+        case 'ArrayExpression': {
+            const id = block.nextLocal();
+            block.assign().local(id).expr(ir.exprEmptyArray());
+            for (const value of ast.elements) {
+                const val = decompose(value);
+                block.set().local(id).expr(val);
+            }
+            return local(id);
+        }
+        case 'ObjectExpression': {
+            const id = block.nextLocal();
+            block.assign().local(id).expr(ir.exprEmptyObject());
+            for (const value of ast.properties) {
+                switch (value.type) {
+                    case 'ObjectMethod': {
+                        // TODO
+                        break;
+                    }
+                    case 'ObjectProperty': {
+                        const key = value.key.type == 'Identifier' ? ir.exprLiteral(value.key.name) : decompose(value.key);
+                        const val = decompose(value.value);
+                        block.set().local(id).propertyName(key).expr(val);
+                        break;
+                    }
+                    case 'SpreadElement': {
+                        // TODO
+                        break;
+                    }
+                }
+            }
+            return local(id);
+        }
     }
     // we don't know what this is, so treat it as an opaque, effectful expression
     return ir.exprRaw(ast);

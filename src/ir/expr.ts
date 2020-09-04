@@ -13,8 +13,8 @@ export const enum IrExprType {
     This,
     Arguments,
     GlobalThis,
-    Array,
-    Object,
+    EmptyArray,
+    EmptyObject,
     Next,
     Function,
     // must be decomposed
@@ -84,14 +84,24 @@ export interface IrGlobalThisExpr {
     kind: IrExprType.GlobalThis,
 }
 
-export interface IrArrayExpr {
-    kind: IrExprType.Array,
-    values: TrivialExpr[],
+export interface IrEmptyArrayExpr {
+    kind: IrExprType.EmptyArray,
 }
 
-export interface IrObjectExpr {
-    kind: IrExprType.Object,
-    properties: {key: TrivialExpr, value: TrivialExpr}[],
+export function exprEmptyArray(): IrEmptyArrayExpr {
+    return {
+        kind: IrExprType.EmptyArray,
+    }
+}
+
+export interface IrEmptyObjectExpr {
+    kind: IrExprType.EmptyObject,
+}
+
+export function exprEmptyObject(): IrEmptyObjectExpr {
+    return {
+        kind: IrExprType.EmptyObject,
+    }
 }
 
 export interface IrNextExpr {
@@ -113,8 +123,8 @@ export type TrivialExpr =
     IrThisExpr |
     IrArgumentsExpr |
     IrGlobalThisExpr |
-    IrArrayExpr |
-    IrObjectExpr |
+    IrEmptyArrayExpr |
+    IrEmptyObjectExpr |
     IrNextExpr |
     IrFunctionExpr
 ;
@@ -204,15 +214,15 @@ export type Expr = TrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCa
 export function exprToString(expr: Expr) {
     switch (expr.kind) {
         case IrExprType.Arguments: return 'arguments';
-        case IrExprType.Array: return `[${expr.values.map(exprToString).join(', ')}]`;
         case IrExprType.Binop: return `${exprToString(expr.left)} ${expr.operator} ${exprToString(expr.right)}`;
         case IrExprType.Call: return `${exprToString(expr.callee)}(${expr.args.map(exprToString).join(', ')})`;
+        case IrExprType.EmptyArray: return '[]';
+        case IrExprType.EmptyObject: return '{}';
         case IrExprType.Function: return `${expr.def.description()} { ... }` // FIXME
         case IrExprType.GlobalThis: return 'globalThis';
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
         case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;
-        case IrExprType.Object: return '???'; // FIXME
         case IrExprType.Phi: return `phi(${expr.lvalues.map(lvalueToString).join(', ')})`;
         case IrExprType.Property: return `${exprToString(expr.expr)}[${exprToString(expr.property)}]`;
         case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;

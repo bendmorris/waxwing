@@ -59,6 +59,18 @@ export class AssignmentBuilder extends BaseExprBuilder<s.IrAssignmentStmt> {
     }
 }
 
+export class SetBuilder extends BaseExprBuilder<s.IrSetStmt> {
+    local(id: number) {
+        this.stmt.lvalue = lvalueLocal(this.block.id, id);
+        return this;
+    }
+
+    propertyName(expr: e.TrivialExpr | undefined) {
+        this.stmt.property = expr;
+        return this;
+    }
+}
+
 export class IfBuilder extends StatementBuilder<s.IrIfStmt> {
     condition(expr: e.TrivialExpr) {
         this.stmt.condition = expr;
@@ -85,18 +97,24 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
     }
 }
 
+export interface IrStmtMetadata {
+    id: number,
+}
+
 export class IrBlock {
     id: number;
     program: IrProgram;
     body: s.IrStmt[];
     ownLocals: Record<string, e.TrivialExpr>;
+    references: Record<number, s.IrStmt[]>;
     private _nextLocal: number;
 
     constructor(program: IrProgram) {
         this.id = -1;
         this.program = program;
         this.body = [];
-        // this.locals = {};
+        this.ownLocals = {};
+        this.references = {};
         this._nextLocal = 0;
     }
 
@@ -104,7 +122,8 @@ export class IrBlock {
         return this._nextLocal++;
     }
 
-    push(stmt: s.IrStmt) {
+    push(stmt: s.IrStmt & Partial<IrStmtMetadata>) {
+        stmt.id = this.body.length;
         this.body.push(stmt);
     }
 
@@ -118,6 +137,12 @@ export class IrBlock {
         const stmt = { kind: s.IrStmtType.Assignment, lvalue: undefined, expr: undefined} as s.IrAssignmentStmt;
         this.push(stmt);
         return new AssignmentBuilder(this, stmt);
+    }
+
+    set() {
+        const stmt = { kind: s.IrStmtType.Set, lvalue: undefined, property: undefined, expr: undefined} as s.IrSetStmt;
+        this.push(stmt);
+        return new SetBuilder(this, stmt);
     }
 
     if() {
