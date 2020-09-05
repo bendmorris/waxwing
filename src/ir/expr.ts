@@ -24,6 +24,25 @@ export const enum IrExprType {
     Call,
 }
 
+export function isTrivial(expr: Expr) {
+    switch (expr.kind) {
+        case IrExprType.Raw:
+        case IrExprType.Literal:
+        case IrExprType.Identifier:
+        case IrExprType.Phi:
+        case IrExprType.This:
+        case IrExprType.Arguments:
+        case IrExprType.GlobalThis:
+        case IrExprType.EmptyArray:
+        case IrExprType.EmptyObject:
+        case IrExprType.Next:
+        case IrExprType.Function: {
+            return true;
+        }
+    }
+    return false;
+}
+
 export interface IrRawExpr {
     kind: IrExprType.Raw,
     ast: Ast,

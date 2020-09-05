@@ -1,7 +1,9 @@
 import * as ir from '../../ir';
+import * as simplify from './simplify';
 import * as findEffects from './findEffects';
 
 const baseOptimizations: Optimization[] = [
+    simplify,
     findEffects,
 ]
 

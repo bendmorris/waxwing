@@ -2,6 +2,7 @@ import * as ir from '../ir';
 import { Ast } from '../ast';
 import { FunctionDefinition } from '../ir/function';
 import * as t from '@babel/types';
+import { exprBinop } from '../ir';
 
 const enum ScopeType {
     FunctionScope,
