@@ -29,7 +29,7 @@ const staticBinops = {
 /**
  * Statically evaluate the given expression as far as possible.
  */
-function simplifyExpr(block: ir.IrBlock, expr: ir.Expr): (ir.TrivialExpr | undefined) {
+export function simplifyExpr(block: ir.IrBlock, expr: ir.Expr): (ir.TrivialExpr | undefined) {
     switch (expr.kind) {
         case ir.IrExprType.Identifier: {
             if (expr.lvalue.kind === ir.LvalueType.Temp) {
@@ -64,6 +64,7 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
     switch (stmt.kind) {
         case ir.IrStmtType.Assignment:
         case ir.IrStmtType.ExprStmt:
+        case ir.IrStmtType.Loop:
         case ir.IrStmtType.Return: {
             const simplified = simplifyExpr(block, stmt.expr);
             if (simplified) {

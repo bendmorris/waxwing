@@ -104,9 +104,11 @@ function exprToAst(block: ir.IrBlock, expr: ir.Expr): t.Expression {
     }
 }
 
-function blockToAst(block: ir.IrBlock): t.Statement[] {
+function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
     const program = block.program;
-    const stmts = [];
+    if (!stmts) {
+        stmts = [];
+    }
     for (const stmt of block.body) {
         if (stmt.dead) {
             continue;
@@ -147,15 +149,58 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
                 break;
             }
             case ir.IrStmtType.If: {
-                stmts.push(t.ifStatement(
-                    exprToAst(block, stmt.condition),
-                    t.blockStatement(blockToAst(stmt.body)),
-                    stmt.elseBody ? t.blockStatement(blockToAst(stmt.elseBody)) : undefined
-                ));
+                if (stmt.knownBranch === true) {
+                    blockToAst(stmt.body, stmts);
+                } else if (stmt.knownBranch === false) {
+                    if (stmt.elseBody) {
+                        blockToAst(stmt.elseBody, stmts);
+                    }
+                } else {
+                    stmts.push(t.ifStatement(
+                        exprToAst(block, stmt.condition),
+                        t.blockStatement(blockToAst(stmt.body)),
+                        stmt.elseBody ? t.blockStatement(blockToAst(stmt.elseBody)) : undefined
+                    ));
+                }
                 break;
             }
             case ir.IrStmtType.Loop: {
-                throw new Error('TODO');
+                switch (stmt.loopType) {
+                    case ir.LoopType.While: {
+                        // FIXME: if knownBranch is true but the loop breaks, eliminate the loop
+                        if (stmt.knownBranch === false) {
+                            // noop
+                        } else {
+                            stmts.push(t.whileStatement(
+                                exprToAst(block, stmt.expr),
+                                t.blockStatement(blockToAst(stmt.body))
+                            ));
+                        }
+                        break;
+                    }
+                    case ir.LoopType.DoWhile: {
+                        if (stmt.knownBranch === false) {
+                            // we know this loop will execute exactly once
+                            // FIXME: this will still include `break` and `continue`
+                            blockToAst(stmt.body, stmts);
+                        } else {
+                            stmts.push(t.doWhileStatement(
+                                exprToAst(block, stmt.expr),
+                                t.blockStatement(blockToAst(stmt.body))
+                            ));
+                        }
+                        break;
+                    }
+                    case ir.LoopType.ForIn: {
+                        throw new Error("TODO");
+                        break;
+                    }
+                    case ir.LoopType.ForOf: {
+                        throw new Error("TODO");
+                        break;
+                    }
+                }
+                break;
             }
             case ir.IrStmtType.Return: {
                 stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(block, stmt.expr)));

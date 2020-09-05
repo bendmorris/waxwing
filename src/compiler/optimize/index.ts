@@ -1,9 +1,11 @@
 import * as ir from '../../ir';
 import * as simplify from './simplify';
+import * as branchElimination from './branchElimination';
 import * as findEffects from './findEffects';
 
 const baseOptimizations: Optimization[] = [
     simplify,
+    branchElimination,
     findEffects,
 ]
 
@@ -22,6 +24,9 @@ export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
 
     if (opt.optimizeBlock || opt.optimizeStmt) {
         for (const block of program.blocks) {
+            if (block.dead) {
+                continue;
+            }
             if (opt.optimizeBlock) {
                 opt.optimizeBlock(block);
             }

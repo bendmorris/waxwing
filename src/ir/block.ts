@@ -105,6 +105,7 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
 export interface IrStmtMetadata {
     id: number,
     dead: boolean,
+    knownBranch?: boolean,
     effects: Effect[],
 }
 
@@ -123,6 +124,7 @@ export class IrBlock {
     body: StmtWithMeta[];
     splits: s.IrStmt[];
     temps: Record<number, IrTempMetadata>;
+    dead: boolean;
     private _nextTemp: number;
 
     constructor(program: IrProgram) {
@@ -131,6 +133,7 @@ export class IrBlock {
         this.body = [];
         this.temps = {};
         this._nextTemp = 0;
+        this.dead = false;
     }
 
     getTempMetadata(varId: number) {

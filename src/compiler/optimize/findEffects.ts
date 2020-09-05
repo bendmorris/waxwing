@@ -1,4 +1,3 @@
-import { Optimization } from './index';
 import * as ir from '../../ir';
 
 function addEffect(stmt: ir.StmtWithMeta, effect: ir.Effect) {

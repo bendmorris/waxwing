@@ -1,0 +1,5 @@
+0:
+function f() =>1
+
+1:
+return true
