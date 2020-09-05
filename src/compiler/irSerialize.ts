@@ -129,7 +129,9 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
                 break;
             }
             case ir.IrStmtType.ExprStmt: {
-                stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
+                if (stmt.effects.length) {
+                    stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
+                }
                 break;
             }
             case ir.IrStmtType.FunctionDeclaration: {

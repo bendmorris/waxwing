@@ -5,7 +5,7 @@ import { lvalueTemp, LvalueType } from './lvalue';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
-import { throwStatement } from '@babel/types';
+import { Effect } from './effect';
 
 class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
@@ -105,7 +105,10 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
 export interface IrStmtMetadata {
     id: number,
     dead: boolean,
+    effects: Effect[],
 }
+
+export type StmtWithMeta = s.IrStmt & Partial<IrStmtMetadata>;
 
 export interface IrTempMetadata {
     varId: number,
@@ -117,7 +120,7 @@ export interface IrTempMetadata {
 export class IrBlock {
     id: number;
     program: IrProgram;
-    body: s.IrStmt[];
+    body: StmtWithMeta[];
     splits: s.IrStmt[];
     temps: Record<number, IrTempMetadata>;
     private _nextTemp: number;
@@ -150,10 +153,11 @@ export class IrBlock {
         return varId;
     }
 
-    push(stmt: s.IrStmt & Partial<IrStmtMetadata>) {
+    push(stmt: StmtWithMeta) {
         stmt.id = this.body.length;
         Object.assign(stmt, {
             dead: false,
+            effects: [],
         });
         let assignedTemp = -1;
         switch (stmt.kind) {

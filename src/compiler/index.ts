@@ -2,7 +2,7 @@ import { Options } from '../options';
 import { Ast, parseFile } from '../ast';
 import { irCompile } from './irCompile';
 import { irSerialize } from './irSerialize';
-import { program } from '@babel/types';
+import { optimizeProgram } from './optimize';
 
 /**
  * This is the main compiler entry point.
@@ -26,6 +26,8 @@ export function compile(options: Options): string {
     if (options.outputIr) {
         return ir.toString();
     }
+
+    optimizeProgram(ir);
 
     // serialize IR into a JS string
     return irSerialize(ir);
