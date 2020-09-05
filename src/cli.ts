@@ -42,7 +42,7 @@ Waxwing, an optimizing JavaScript compiler.
             description: 'display verbose logs (can be repeated to increase verbosity)',
             type: 'boolean'
         })
-        .option('wwir', {
+        .option('ir', {
             description: 'output WWIR instead of JS',
             type: 'boolean',
         })
@@ -56,7 +56,7 @@ const options = makeOptions({
     input: args.inputFile as string,
     out: args.out as string,
     verbose: args.verbose as number,
-    outputIr: args.wwir as boolean,
+    outputIr: args.ir as boolean,
 });
 
 const result = compile(options);

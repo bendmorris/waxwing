@@ -16,6 +16,11 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
                         if (!meta || !meta.references.length) {
                             (stmt as ir.IrBase).kind = ir.IrStmtType.ExprStmt;
                         }
+                        break;
+                    }
+                    case ir.LvalueType.Global: {
+                        addEffect(stmt, ir.effectMutation(stmt.lvalue));
+                        break;
                     }
                 }
                 // fall through and handle the RHS's Expr
@@ -23,8 +28,8 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
             case ir.IrStmtType.ExprStmt: {
                 switch (stmt.expr.kind) {
                     case ir.IrExprType.Call: {
-                        // assume that this has unavoidable side effects until
-                        // we can prove otherwise
+                        // assume that any call has unavoidable side effects
+                        // until we can prove otherwise
                         addEffect(stmt, ir.effectIo());
                         break;
                     }

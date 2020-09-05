@@ -108,6 +108,9 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
     const program = block.program;
     const stmts = [];
     for (const stmt of block.body) {
+        if (stmt.dead) {
+            continue;
+        }
         switch (stmt.kind) {
             case ir.IrStmtType.Assignment: {
                 switch (stmt.lvalue.kind) {
@@ -151,6 +154,16 @@ function blockToAst(block: ir.IrBlock): t.Statement[] {
             }
             case ir.IrStmtType.Return: {
                 stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(block, stmt.expr)));
+                break;
+            }
+            case ir.IrStmtType.Set: {
+                let lhs;
+                if (stmt.property.kind === ir.IrExprType.Literal && typeof stmt.property.value === 'string' && isValidIdentifier(stmt.property.value)) {
+                    lhs = t.memberExpression(lvalueToAst(block, stmt.lvalue), t.identifier(stmt.property.value), false);
+                } else {
+                    lhs = t.memberExpression(lvalueToAst(block, stmt.lvalue), exprToAst(block, stmt.property), false);
+                }
+                stmts.push(t.expressionStatement(t.assignmentExpression('=', lhs, exprToAst(block, stmt.expr))));
                 break;
             }
         }

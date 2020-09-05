@@ -74,6 +74,10 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
         return ir.exprIdentifierTemp(block.id, id);
     }
     switch (ast.type) {
+        case 'AssignmentExpression': {
+            // TODO
+            break;
+        }
         case 'Identifier': {
             const found = ctx.findScopeWithBinding(ast.name);
             if (found) {
@@ -106,14 +110,14 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
         //     if (ast.prefix) {
         //         // prefix: provide the original value, and also update it
         //         const decomposed = decompose(ast.argument);
-        //         const id = ctx.nextTemp();
+        //         const id = block.nextTemp();
         //         block.assign().temp(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1)).finish();
         //         // TODO: update binding
         //         return ir.exprIdentifierTemp(id);
         //     } else {
         //         // suffix: update the value and use that new identifier
         //         const decomposed = decompose(ast.argument);
-        //         const id = ctx.nextTemp();
+        //         const id = block.nextTemp();
         //         block.assign().temp(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1)).finish();
         //         // TODO: update binding
         //         return ir.exprIdentifierTemp(id);
@@ -203,14 +207,17 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                 switch (decl.id.type) {
                     case 'Identifier': {
                         const decomposed = decl.init ? decompose(decl.init) : ir.exprLiteral(undefined);
-                        if (decomposed.kind !== ir.IrExprType.Identifier) {
-                            const id = block.nextTemp();
+                        let id;
+                        if (decomposed.kind === ir.IrExprType.Identifier && decomposed.lvalue.kind === ir.LvalueType.Temp) {
+                            id = decomposed.lvalue.varId;
+                        } else {
+                            id = block.nextTemp();
                             block.assign().temp(id).expr(decomposed).finish();
-                            if (ast.kind === 'var') {
-                                ctx.functionScope.setBinding(decl.id, id);
-                            } else {
-                                ctx.setBinding(decl.id, id);
-                            }
+                        }
+                        if (ast.kind === 'var') {
+                            ctx.functionScope.setBinding(decl.id, id);
+                        } else {
+                            ctx.setBinding(decl.id, id);
                         }
                         break;
                     }

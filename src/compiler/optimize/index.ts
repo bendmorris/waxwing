@@ -1,6 +1,10 @@
 import * as ir from '../../ir';
 import * as findEffects from './findEffects';
 
+const baseOptimizations: Optimization[] = [
+    findEffects,
+]
+
 interface OptimizationMethods {
     optimizeProgram: (program: ir.IrProgram) => void,
     optimizeBlock: (block: ir.IrBlock) => void,
@@ -29,5 +33,7 @@ export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
 }
 
 export function optimizeProgram(program: ir.IrProgram) {
-    applyOptimization(findEffects, program);
+    for (const opt of baseOptimizations) {
+        applyOptimization(opt, program);
+    }
 }

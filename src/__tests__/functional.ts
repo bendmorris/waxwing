@@ -37,7 +37,7 @@ describe('functional tests', () => {
         {
             const outFile = testPath.replace(/\.in\.js$/, '.out.ww');
             if (fs.existsSync(outFile)) {
-                test(`${testPath.substr('tests/functional/'.length)} -> WWIR`, () => {
+                test(`${testPath} -> WWIR`, () => {
                     const ast = parseFile(testPath);
                     const out = irCompile(ast).toString();
                     const check = fs.readFileSync(outFile).toString();
@@ -49,7 +49,7 @@ describe('functional tests', () => {
         {
             const outFile = testPath.replace(/\.in\.js$/, '.out.js');
             if (fs.existsSync(outFile)) {
-                test(`${testPath.substr('tests/functional/'.length)} -> JS`, () => {
+                test(`${testPath} -> JS`, () => {
                     // TODO: overridable options
                     const options: Options = makeOptions({
                         input: testPath,
