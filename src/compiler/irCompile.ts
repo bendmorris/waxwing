@@ -2,7 +2,6 @@ import * as ir from '../ir';
 import { Ast } from '../ast';
 import { FunctionDefinition } from '../ir/function';
 import * as t from '@babel/types';
-import { exprBinop } from '../ir';
 
 const enum ScopeType {
     FunctionScope,
@@ -12,11 +11,13 @@ const enum ScopeType {
 export class IrScope {
     program: ir.IrProgram;
     scopeType: ScopeType;
+    id: number;
     parent?: IrScope;
     functionScope?: IrScope;
     bindings: Record<string, number>;
 
     constructor(program: ir.IrProgram, scopeType: ScopeType, parent?: IrScope) {
+        this.id = parent ? (parent.id + 1) : 0;
         this.program = program;
         this.scopeType = scopeType;
         this.parent = parent;
@@ -31,7 +32,7 @@ export class IrScope {
         return new IrScope(this.program, ScopeType.FunctionScope, this);
     }
 
-    childBlock() {
+    childBlockScope() {
         return new IrScope(this.program, ScopeType.BlockScope, this);
     }
 
@@ -179,9 +180,28 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
             }
             return temp(id);
         }
+        case 'FunctionExpression': {
+            const def = new FunctionDefinition(ctx.program);
+            def.name = ast.id ? ast.id.name : undefined;
+            compileStmt(ctx.childFunction(), def.body, ast.body);
+            const id = block.nextTemp();
+            block.assign().temp(id).expr(ir.exprFunction(def)).finish();
+            return temp(id);
+        }
     }
     // we don't know what this is, so treat it as an opaque, effectful expression
+    // TODO: warning
     return ir.exprRaw(ast);
+}
+
+function isBlockBoundary(stmt: ir.IrStmt) {
+    switch (stmt.kind) {
+        case ir.IrStmtType.If:
+        case ir.IrStmtType.Loop: {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -190,16 +210,24 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
  * `decomposeExpr`.
  */
 function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
+    const program = block.program;
     function recurse(x: Ast) {
-        compileStmt(ctx, block, x);
+        return compileStmt(ctx, block, x);
     }
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }
     switch (ast.type) {
         case 'BlockStatement': {
+            const scope = ctx.childBlockScope();
             for (const stmt of ast.body) {
-                compileStmt(ctx.childBlock(), block, stmt);
+                const last = block.lastStmt();
+                if (last && isBlockBoundary(last)) {
+                    const next = program.block();
+                    block.continued = next;
+                    block = next;
+                }
+                compileStmt(scope, block, stmt);
             }
             break;
         }
@@ -215,15 +243,13 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                             id = block.nextTemp();
                             block.assign().temp(id).expr(decomposed).finish();
                         }
-                        if (ast.kind === 'var') {
-                            ctx.functionScope.setBinding(decl.id, id);
-                        } else {
-                            ctx.setBinding(decl.id, id);
-                        }
+                        const scope = ast.kind === 'var' ? ctx.functionScope : ctx;
+                        scope.setBinding(decl.id, id);
+                        block.addDeclaration(scope.id, decl.id.name, id);
                         break;
                     }
                     default: {
-                        throw "TODO: not yet supported";
+                        throw new Error("TODO: non-identifier assignment patterns not yet supported");
                     }
                 }
             }
@@ -233,9 +259,9 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             const condition = decompose(ast.test);
             const stmt = block.if();
             stmt.condition(condition);
-            compileStmt(ctx.childBlock(), stmt.body(), ast.consequent);
+            compileStmt(ctx.childBlockScope(), stmt.body(), ast.consequent);
             if (ast.alternate) {
-                compileStmt(ctx.childBlock(), stmt.else(), ast.alternate);
+                compileStmt(ctx.childBlockScope(), stmt.else(), ast.alternate);
             }
             stmt.finish();
             break;
@@ -246,7 +272,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             const stmt = block.while();
             stmt.expr(condition);
             const body = stmt.body();
-            compileStmt(ctx.childBlock(), body, ast.body);
+            compileStmt(ctx.childBlockScope(), body, ast.body);
             compileStmt(ctx, body, ast.update);
             stmt.finish();
             break;
@@ -263,7 +289,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             const condition = decompose(ast.test);
             const stmt = ast.type === 'DoWhileStatement' ? block.doWhile() : block.while();
             stmt.expr(condition);
-            compileStmt(ctx.childBlock(), stmt.body(), ast.body);
+            compileStmt(ctx.childBlockScope(), stmt.body(), ast.body);
             stmt.finish();
             break;
         }

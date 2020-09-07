@@ -23,17 +23,20 @@ export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
     }
 
     if (opt.optimizeBlock || opt.optimizeStmt) {
-        for (const block of program.blocks) {
-            if (block.dead) {
-                continue;
-            }
-            if (opt.optimizeBlock) {
-                opt.optimizeBlock(block);
-            }
-            if (opt.optimizeStmt) {
-                for (const stmt of block.body) {
-                    opt.optimizeStmt(block, stmt);
+        for (let block of program.blocks) {
+            while (block) {
+                if (block.dead) {
+                    break;
                 }
+                if (opt.optimizeBlock) {
+                    opt.optimizeBlock(block);
+                }
+                if (opt.optimizeStmt) {
+                    for (const stmt of block.body) {
+                        opt.optimizeStmt(block, stmt);
+                    }
+                }
+                block = block.continued;
             }
         }
     }

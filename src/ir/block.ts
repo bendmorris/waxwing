@@ -1,7 +1,7 @@
 import * as s from './stmt';
 import * as e from './expr';
 import * as u from './utils';
-import { lvalueTemp, LvalueType } from './lvalue';
+import { lvalueTemp, LvalueType, TempVar } from './lvalue';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
@@ -107,6 +107,7 @@ export interface IrStmtMetadata {
     dead: boolean,
     knownBranch?: boolean,
     effects: Effect[],
+    continued?: IrBlock,
 }
 
 export type StmtWithMeta = s.IrStmt & Partial<IrStmtMetadata>;
@@ -122,9 +123,12 @@ export class IrBlock {
     id: number;
     program: IrProgram;
     body: StmtWithMeta[];
-    splits: s.IrStmt[];
     temps: Record<number, IrTempMetadata>;
     dead: boolean;
+    continued: IrBlock;
+    // declarations and assignments: { scope ID: { name: temp ID } }
+    varDeclarations: Record<number, Record<string, number>>;
+    varAssignments: Record<number, Record<string, number>>;
     private _nextTemp: number;
 
     constructor(program: IrProgram) {
@@ -132,17 +136,34 @@ export class IrBlock {
         this.program = program;
         this.body = [];
         this.temps = {};
+        this.varDeclarations = {};
+        this.varAssignments = {};
         this._nextTemp = 0;
         this.dead = false;
     }
 
-    getTempMetadata(varId: number) {
-        return this.temps[varId];
-    }
+    getTempMetadata(varId: number) { return this.temps[varId]; }
 
     addReference(varId: number, stmt: s.IrStmt) {
         this.getTempMetadata(varId).references.push(stmt);
     }
+
+    addDeclaration(scopeId: number, name: string, tempId: number) {
+        if (!this.varDeclarations[scopeId]) {
+            this.varDeclarations[scopeId] = {};
+        }
+        this.varDeclarations[scopeId][name] = tempId;
+        this.addAssignment(scopeId, name, tempId);
+    }
+
+    addAssignment(scopeId: number, name: string, tempId: number) {
+        if (!this.varAssignments[scopeId]) {
+            this.varAssignments[scopeId] = {};
+        }
+        this.varAssignments[scopeId][name] = tempId;
+    }
+    
+    lastStmt(): StmtWithMeta | undefined { return this.body[this.body.length - 1]; }
 
     nextTemp(): number {
         const varId = this._nextTemp++;

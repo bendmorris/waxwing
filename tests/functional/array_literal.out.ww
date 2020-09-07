@@ -1,5 +1,5 @@
 0:
-function f() =>1
+function f() goto 1
 
 1:
 $1:0 = []

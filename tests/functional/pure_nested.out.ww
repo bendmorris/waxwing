@@ -1,8 +1,8 @@
 0:
-function f() =>1
+function f() goto 1
 
 1:
-function g() =>2
+function g() goto 2
 $1:0 = g()
 return $1:0
 

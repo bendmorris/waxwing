@@ -104,12 +104,12 @@ export function stmtToString(stmt: IrStmt): string {
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;
         }
-        case IrStmtType.If: return `if ${exprToString(stmt.condition)} =>${stmt.body.id}${stmt.elseBody ? (' else =>' + stmt.elseBody.id) : ''}`;
+        case IrStmtType.If: return `if ${exprToString(stmt.condition)} goto ${stmt.body.id}${stmt.elseBody ? (' else goto ' + stmt.elseBody.id) : ''}`;
         case IrStmtType.Loop: switch (stmt.loopType) {
-            case LoopType.While: return `while ${exprToString(stmt.expr)} =>${stmt.body.id}`;
-            case LoopType.DoWhile: return `do while ${exprToString(stmt.expr)} =>${stmt.body.id}`;
-            case LoopType.ForIn: return `for in ${exprToString(stmt.expr)} =>${stmt.body.id}`;
-            case LoopType.ForOf: return `for of ${exprToString(stmt.expr)} =>${stmt.body.id}`;
+            case LoopType.While: return `while ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
+            case LoopType.DoWhile: return `do while ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
+            case LoopType.ForIn: return `for in ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
+            case LoopType.ForOf: return `for of ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
         }
         case IrStmtType.Continue: return `continue`;
         case IrStmtType.Break: return `break`;

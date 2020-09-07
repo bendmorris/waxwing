@@ -44,7 +44,8 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.Expr): (ir.TrivialExpr 
         case ir.IrExprType.Binop: {
             const lhs = simplifyExpr(block, expr.left),
                 rhs = simplifyExpr(block, expr.right);
-            if (lhs.kind === ir.IrExprType.Literal &&
+            if (lhs && rhs &&
+                lhs.kind === ir.IrExprType.Literal &&
                 rhs.kind === ir.IrExprType.Literal &&
                 staticBinops[expr.operator]
             ) {

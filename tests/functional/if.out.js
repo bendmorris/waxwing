@@ -1,2 +1,4 @@
-log("yes");
-log("yes it is");
+function f() {
+    log("yes");
+    log("yes it is");
+}

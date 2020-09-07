@@ -1,5 +1,5 @@
 0:
-function helloWorld() =>1
+function helloWorld() goto 1
 $0:0 = helloWorld()
 
 1:

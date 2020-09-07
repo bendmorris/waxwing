@@ -135,6 +135,13 @@ export interface IrFunctionExpr {
     def: FunctionDefinition,
 }
 
+export function exprFunction(def: FunctionDefinition): IrFunctionExpr {
+    return {
+        kind: IrExprType.Function,
+        def,
+    };
+}
+
 export type TrivialExpr =
     IrRawExpr |
     IrLiteralExpr |

@@ -1,5 +1,7 @@
-log("loop body 1");
+function f() {
+    log("loop body 1");
 
-while (true) {
-    log("loop body 2");
+    while (true) {
+        log("loop body 2");
+    }
 }
