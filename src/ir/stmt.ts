@@ -1,5 +1,5 @@
 import { Lvalue, lvalueToString } from './lvalue';
-import { Expr, TrivialExpr, exprToString } from './expr';
+import { IrExpr, IrTrivialExpr, exprToString } from './expr';
 import { IrBlock } from './block';
 import { FunctionDefinition } from './function';
 // import { Constraint } from './constraint';
@@ -21,27 +21,39 @@ export interface IrBase {
 }
 
 
+/**
+ * A statement containing an expression whose value is unused.
+ */
 export interface IrExprStmt extends IrBase {
     kind: IrStmtType.ExprStmt,
-    expr: Expr,
+    expr: IrExpr,
 }
 
+/**
+ * An assignment of an IrExpr to either a temp, register or global variable.
+ */
 export interface IrAssignmentStmt extends IrBase {
     kind: IrStmtType.Assignment,
     lvalue: Lvalue,
-    expr: Expr,
+    expr: IrExpr,
 }
 
+/**
+ * Property set on an object.
+ */
 export interface IrSetStmt extends IrBase {
     kind: IrStmtType.Set,
     lvalue: Lvalue,
-    property?: TrivialExpr,
-    expr: TrivialExpr,
+    property?: IrTrivialExpr,
+    expr: IrTrivialExpr,
 }
 
+/**
+ * If statement.
+ */
 export interface IrIfStmt extends IrBase {
     kind: IrStmtType.If,
-    condition: TrivialExpr,
+    condition: IrTrivialExpr,
     body: IrBlock,
     elseBody?: IrBlock,
 }
@@ -53,26 +65,41 @@ export const enum LoopType {
     ForOf,
 }
 
+/**
+ * A while, do/while, for/in or for/of loop.
+ */
 export interface IrLoopStmt extends IrBase {
     kind: IrStmtType.Loop,
     loopType: LoopType,
-    expr: TrivialExpr,
+    expr: IrTrivialExpr,
     body: IrBlock,
 }
 
+/**
+ * `continue` in a loop.
+ */
 export interface IrContinueStmt extends IrBase {
     kind: IrStmtType.Continue,
 }
 
+/**
+ * `break` in a loop.
+ */
 export interface IrBreakStmt extends IrBase {
     kind: IrStmtType.Break,
 }
 
+/**
+ * Function return.
+ */
 export interface IrReturnStmt extends IrBase {
     kind: IrStmtType.Return,
-    expr?: TrivialExpr,
+    expr?: IrTrivialExpr,
 }
 
+/**
+ * Function declaration.
+ */
 export interface IrFunctionDeclarationStmt extends IrBase {
     kind: IrStmtType.FunctionDeclaration,
     def: FunctionDefinition,

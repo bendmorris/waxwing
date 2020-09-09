@@ -1,9 +1,9 @@
-import { IrExprType, Expr, TrivialExpr, exprIdentifier } from './expr';
+import { IrExprType, IrExpr, IrTrivialExpr, exprIdentifier } from './expr';
 import { IrBlock } from './block';
 import { IrStmtType, IrStmt } from './stmt';
 
 type StmtCallback = (x: IrStmt) => void;
-type TrivialExprCallback = (x: TrivialExpr) => void;
+type IrTrivialExprCallback = (x: IrTrivialExpr) => void;
 
 export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
     for (const stmt of block.body) {
@@ -29,13 +29,13 @@ export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
     }
 }
 
-export function applyToExprsInBlock(f: TrivialExprCallback, block: IrBlock) {
+export function applyToExprsInBlock(f: IrTrivialExprCallback, block: IrBlock) {
     for (const stmt of block.body) {
         applyToExprsInStmt(f, stmt);
     }
 }
 
-export function applyToExprsInStmt(f: TrivialExprCallback, stmt: IrStmt) {
+export function applyToExprsInStmt(f: IrTrivialExprCallback, stmt: IrStmt) {
     switch (stmt.kind) {
         case IrStmtType.Assignment:
         case IrStmtType.ExprStmt: {
@@ -75,7 +75,7 @@ export function applyToExprsInStmt(f: TrivialExprCallback, stmt: IrStmt) {
     }
 }
 
-export function applyToExprsInExpr(f: TrivialExprCallback, expr: Expr) {
+export function applyToExprsInExpr(f: IrTrivialExprCallback, expr: IrExpr) {
     switch (expr.kind) {
         // trivial
         case IrExprType.Arguments:

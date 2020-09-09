@@ -4,4 +4,6 @@ function f() {
     while (true) {
         log("loop body 2");
     }
+
+    log("loop body 3");
 }

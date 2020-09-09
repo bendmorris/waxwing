@@ -26,8 +26,8 @@ function lvalueToAst(block: ir.IrBlock, lvalue: ir.Lvalue): t.Expression {
     }
 }
 
-function exprToAst(block: ir.IrBlock, expr: ir.Expr): t.Expression {
-    function recurse(expr: ir.Expr) {
+function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
+    function recurse(expr: ir.IrExpr) {
         return exprToAst(block, expr);
     }
     switch (expr.kind) {

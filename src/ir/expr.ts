@@ -2,7 +2,7 @@ import { Ast } from '../ast';
 import { Lvalue, LvalueTemp, lvalueTemp, lvalueToString, lvalueGlobal } from './lvalue';
 import { IrBlock } from './block';
 import { FunctionDefinition } from './function';
-import { string } from 'yargs';
+import { string, number } from 'yargs';
 
 export const enum IrExprType {
     // trivial
@@ -24,7 +24,7 @@ export const enum IrExprType {
     Call,
 }
 
-export function isTrivial(expr: Expr) {
+export function isTrivial(expr: IrExpr) {
     switch (expr.kind) {
         case IrExprType.Raw:
         case IrExprType.Literal:
@@ -106,28 +106,32 @@ export interface IrGlobalThisExpr {
 
 export interface IrEmptyArrayExpr {
     kind: IrExprType.EmptyArray,
+    instanceId: number,
 }
 
-export function exprEmptyArray(): IrEmptyArrayExpr {
+export function exprEmptyArray(instanceId: number): IrEmptyArrayExpr {
     return {
         kind: IrExprType.EmptyArray,
+        instanceId,
     }
 }
 
 export interface IrEmptyObjectExpr {
     kind: IrExprType.EmptyObject,
+    instanceId: number,
 }
 
-export function exprEmptyObject(): IrEmptyObjectExpr {
+export function exprEmptyObject(instanceId: number): IrEmptyObjectExpr {
     return {
         kind: IrExprType.EmptyObject,
+        instanceId,
     }
 }
 
 export interface IrNextExpr {
     kind: IrExprType.Next,
     nextIn: boolean,
-    value: TrivialExpr,
+    value: IrTrivialExpr,
 }
 
 export interface IrFunctionExpr {
@@ -142,7 +146,7 @@ export function exprFunction(def: FunctionDefinition): IrFunctionExpr {
     };
 }
 
-export type TrivialExpr =
+export type IrTrivialExpr =
     IrRawExpr |
     IrLiteralExpr |
     IrIdentifierExpr |
@@ -162,10 +166,10 @@ export interface IrUnopExpr {
     kind: IrExprType.Unop,
     operator: UnaryOperator,
     prefix: boolean,
-    expr: TrivialExpr,
+    expr: IrTrivialExpr,
 }
 
-export function exprUnop(operator: UnaryOperator, prefix: boolean, expr: TrivialExpr): IrUnopExpr {
+export function exprUnop(operator: UnaryOperator, prefix: boolean, expr: IrTrivialExpr): IrUnopExpr {
     return {
         kind: IrExprType.Unop,
         operator,
@@ -189,11 +193,11 @@ export type BinaryOperator =
 export interface IrBinopExpr {
     kind: IrExprType.Binop,
     operator: BinaryOperator,
-    left: TrivialExpr,
-    right: TrivialExpr,
+    left: IrTrivialExpr,
+    right: IrTrivialExpr,
 }
 
-export function exprBinop(operator: BinaryOperator, left: TrivialExpr, right: TrivialExpr): IrBinopExpr {
+export function exprBinop(operator: BinaryOperator, left: IrTrivialExpr, right: IrTrivialExpr): IrBinopExpr {
     return {
         kind: IrExprType.Binop,
         operator,
@@ -204,11 +208,11 @@ export function exprBinop(operator: BinaryOperator, left: TrivialExpr, right: Tr
 
 export interface IrPropertyExpr {
     kind: IrExprType.Property,
-    expr: TrivialExpr,
-    property: TrivialExpr,
+    expr: IrTrivialExpr,
+    property: IrTrivialExpr,
 }
 
-export function exprProperty(expr: TrivialExpr, property: TrivialExpr): IrPropertyExpr {
+export function exprProperty(expr: IrTrivialExpr, property: IrTrivialExpr): IrPropertyExpr {
     return {
         kind: IrExprType.Property,
         expr,
@@ -218,12 +222,12 @@ export function exprProperty(expr: TrivialExpr, property: TrivialExpr): IrProper
 
 export interface IrCallExpr {
     kind: IrExprType.Call,
-    callee: TrivialExpr,
-    args: TrivialExpr[],
+    callee: IrTrivialExpr,
+    args: IrTrivialExpr[],
     isNew: boolean,
 }
 
-export function exprCall(callee: TrivialExpr, args: TrivialExpr[], isNew: boolean = false): IrCallExpr {
+export function exprCall(callee: IrTrivialExpr, args: IrTrivialExpr[], isNew: boolean = false): IrCallExpr {
     return {
         kind: IrExprType.Call,
         callee,
@@ -233,12 +237,13 @@ export function exprCall(callee: TrivialExpr, args: TrivialExpr[], isNew: boolea
 }
 
 /**
- * In WWIR, an Expr is a compound expression composed of multiple TrivialExprs.
- * To create statements, these must be decomposed by assigning to temps.
+ * In WWIR, an IrExpr is a compound expression composed of multiple
+ * IrTrivialExprs. To create statements, these must be decomposed by assigning
+ * to temps.
  */
-export type Expr = TrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr;
+export type IrExpr = IrTrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr;
 
-export function exprToString(expr: Expr) {
+export function exprToString(expr: IrExpr) {
     switch (expr.kind) {
         case IrExprType.Arguments: return 'arguments';
         case IrExprType.Binop: return `${exprToString(expr.left)} ${expr.operator} ${exprToString(expr.right)}`;

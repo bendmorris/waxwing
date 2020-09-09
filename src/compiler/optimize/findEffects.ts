@@ -17,12 +17,12 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
                         }
                         break;
                     }
-                    case ir.LvalueType.Global: {
-                        addEffect(stmt, ir.effectMutation(stmt.lvalue));
-                        break;
-                    }
+                    // case ir.LvalueType.Global: {
+                    //     addEffect(stmt, ir.effectMutation(stmt.lvalue));
+                    //     break;
+                    // }
                 }
-                // fall through and handle the RHS's Expr
+                // fall through and handle the RHS's IrExpr
             }
             case ir.IrStmtType.ExprStmt: {
                 switch (stmt.expr.kind) {
@@ -36,7 +36,7 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
                 break;
             }
             case ir.IrStmtType.Set: {
-                addEffect(stmt, ir.effectMutation(stmt.lvalue));
+                // addEffect(stmt, ir.effectMutation(stmt.lvalue));
                 break;
             }
         }

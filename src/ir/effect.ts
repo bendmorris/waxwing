@@ -15,13 +15,15 @@ export function effectIo(): EffectIo {
 
 export interface EffectMutation {
     kind: EffectType.Mutation,
-    lvalue: Lvalue,
+    instanceId: number,
+    generationId: number,
 }
 
-export function effectMutation(lvalue: Lvalue): EffectMutation {
+export function effectMutation(instanceId: number, generationId: number): EffectMutation {
     return {
         kind: EffectType.Mutation,
-        lvalue,
+        instanceId,
+        generationId,
     };
 }
 

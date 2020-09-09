@@ -2,6 +2,7 @@ import * as ir from '../ir';
 import { Ast } from '../ast';
 import { FunctionDefinition } from '../ir/function';
 import * as t from '@babel/types';
+import { effectMutation, IrStmtType, exprLiteral } from '../ir';
 
 const enum ScopeType {
     FunctionScope,
@@ -64,16 +65,19 @@ export class IrScope {
 }
 
 /**
- * Break down an AST node, returning a TrivialExpr. If this requires
+ * Break down an AST node, returning a IrTrivialExpr. If this requires
  * decomposing, additional assignments will be added to `block`.
  */
-function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExpr {
+function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialExpr {
     // TODO: this should also return an lvalue if the expression is one
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }
     function temp(id: number) {
         return ir.exprIdentifierTemp(block.id, id);
+    }
+    if (ast === null) {
+        throw new Error("attempting to decompose null AST");
     }
     switch (ast.type) {
         case 'AssignmentExpression': {
@@ -150,16 +154,20 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
         }
         case 'ArrayExpression': {
             const id = block.nextTemp();
-            block.assign().temp(id).expr(ir.exprEmptyArray()).finish();
+            const instanceId = block.nextInstance();
+            block.assign().temp(id).expr(ir.exprEmptyArray(instanceId)).finish();
             for (const value of ast.elements) {
                 const val = decompose(value);
-                block.set().temp(id).expr(val).finish();
+                const stmt = block.set().temp(id).expr(val).finish();
+                const newGeneration = block.nextGeneration(instanceId);
+                stmt.effects.push(effectMutation(instanceId, newGeneration));
             }
             return temp(id);
         }
         case 'ObjectExpression': {
             const id = block.nextTemp();
-            block.assign().temp(id).expr(ir.exprEmptyObject()).finish();
+            const instanceId = block.nextInstance();
+            block.assign().temp(id).expr(ir.exprEmptyObject(instanceId)).finish();
             for (const value of ast.properties) {
                 switch (value.type) {
                     case 'ObjectMethod': {
@@ -169,7 +177,9 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.TrivialExp
                     case 'ObjectProperty': {
                         const key = value.key.type == 'Identifier' ? ir.exprLiteral(value.key.name) : decompose(value.key);
                         const val = decompose(value.value);
-                        block.set().temp(id).propertyName(key).expr(val).finish();
+                        const stmt = block.set().temp(id).propertyName(key).expr(val).finish();
+                        const newGeneration = block.nextGeneration(instanceId);
+                        stmt.effects.push(effectMutation(instanceId, newGeneration));
                         break;
                     }
                     case 'SpreadElement': {
@@ -217,15 +227,30 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }
+    if (ast === null) {
+        throw new Error("attempting to compile null AST");
+    }
     switch (ast.type) {
         case 'BlockStatement': {
             const scope = ctx.childBlockScope();
+            compileBlock:
             for (const stmt of ast.body) {
                 const last = block.lastStmt();
-                if (last && isBlockBoundary(last)) {
-                    const next = program.block();
-                    block.continued = next;
-                    block = next;
+                if (last) {
+                    switch (last.kind) {
+                        case IrStmtType.Break:
+                        case IrStmtType.Continue:
+                        case IrStmtType.Return: {
+                            break compileBlock;
+                        }
+                        case ir.IrStmtType.If:
+                        case ir.IrStmtType.Loop: {
+                            const next = program.block();
+                            block.continued = next;
+                            block = next;
+                            break;
+                        }
+                    }
                 }
                 compileStmt(scope, block, stmt);
             }
@@ -267,13 +292,17 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             break;
         }
         case 'ForStatement': {
-            recurse(ast.init);
-            const condition = decompose(ast.test);
+            if (ast.init) {
+                recurse(ast.init);
+            }
+            const condition = ast.test ? decompose(ast.test) : exprLiteral(true);
             const stmt = block.while();
             stmt.expr(condition);
             const body = stmt.body();
             compileStmt(ctx.childBlockScope(), body, ast.body);
-            compileStmt(ctx, body, ast.update);
+            if (ast.update) {
+                compileStmt(ctx, body, ast.update);
+            }
             stmt.finish();
             break;
         }

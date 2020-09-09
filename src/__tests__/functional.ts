@@ -20,7 +20,7 @@ function globDir(dir: string, pattern: string): string[] {
 }
 
 function normalize(s) {
-    return s.replace(/\n+/g, '\n').replace(/ +/g, ' ');
+    return s.replace(/\n+/g, '\n').replace(/ +/g, ' ').replace(/\n+/g, '\n');
 }
 
 /**

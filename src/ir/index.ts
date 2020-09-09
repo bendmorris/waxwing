@@ -13,6 +13,7 @@ export * from './effect';
 export * from './expr';
 export * from './function';
 export * from './lvalue';
+export * from './object';
 export * from './program';
 export * from './stmt';
 export * from './utils';

@@ -1,0 +1,18 @@
+0:
+function f() goto 1
+
+1:
+while true goto 2
+
+2:
+$2:0 = console["log"]
+$2:1 = $2:0("hello")
+break
+
+3:
+do while false goto 4
+
+4:
+$4:0 = console["log"]
+$4:1 = $4:0("hello")
+continue

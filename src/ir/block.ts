@@ -6,6 +6,7 @@ import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
 import { Effect } from './effect';
+import { ObjectGeneration } from './object';
 
 class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
@@ -18,13 +19,14 @@ class StatementBuilder<T extends s.IrStmt> {
         this.stmt = stmt;
     }
 
-    finish() {
+    finish(): StmtWithMeta {
         this.block.push(this.stmt);
+        return this.stmt;
     }
 }
 
-class BaseExprBuilder<T extends s.IrStmt & { expr: e.Expr }> extends StatementBuilder<T> {
-    expr(expr: e.Expr) {
+class BaseExprBuilder<T extends s.IrStmt & { expr: e.IrExpr }> extends StatementBuilder<T> {
+    expr(expr: e.IrExpr) {
         this.stmt.expr = expr;
         return this;
     }
@@ -34,22 +36,22 @@ class BaseExprBuilder<T extends s.IrStmt & { expr: e.Expr }> extends StatementBu
         return this;
     }
 
-    unop(operator: e.UnaryOperator, prefix: boolean, expr: e.TrivialExpr) {
+    unop(operator: e.UnaryOperator, prefix: boolean, expr: e.IrTrivialExpr) {
         this.stmt.expr = e.exprUnop(operator, prefix, expr);
         return this;
     }
 
-    binop(operator: e.BinaryOperator, left: e.TrivialExpr, right: e.TrivialExpr) {
+    binop(operator: e.BinaryOperator, left: e.IrTrivialExpr, right: e.IrTrivialExpr) {
         this.stmt.expr = e.exprBinop(operator, left, right);
         return this;
     }
 
-    property(expr: e.TrivialExpr, property: e.TrivialExpr) {
+    property(expr: e.IrTrivialExpr, property: e.IrTrivialExpr) {
         this.stmt.expr = e.exprProperty(expr, property);
         return this;
     }
 
-    call(callee: e.TrivialExpr, args: e.TrivialExpr[], isNew: boolean = false) {
+    call(callee: e.IrTrivialExpr, args: e.IrTrivialExpr[], isNew: boolean = false) {
         this.stmt.expr = e.exprCall(callee, args, isNew);
         return this;
     }
@@ -70,14 +72,14 @@ export class SetBuilder extends BaseExprBuilder<s.IrSetStmt> {
         return this;
     }
 
-    propertyName(expr: e.TrivialExpr | undefined) {
+    propertyName(expr: e.IrTrivialExpr | undefined) {
         this.stmt.property = expr;
         return this;
     }
 }
 
 export class IfBuilder extends StatementBuilder<s.IrIfStmt> {
-    condition(expr: e.TrivialExpr) {
+    condition(expr: e.IrTrivialExpr) {
         this.stmt.condition = expr;
         return this;
     }
@@ -92,7 +94,7 @@ export class IfBuilder extends StatementBuilder<s.IrIfStmt> {
 }
 
 export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
-    expr(expr: e.TrivialExpr) {
+    expr(expr: e.IrTrivialExpr) {
         this.stmt.expr = expr;
         return this;
     }
@@ -115,7 +117,7 @@ export type StmtWithMeta = s.IrStmt & Partial<IrStmtMetadata>;
 export interface IrTempMetadata {
     varId: number,
     references: s.IrStmt[],
-    definition?: e.Expr,
+    definition?: e.IrExpr,
     inlined: boolean,
 }
 
@@ -124,28 +126,37 @@ export class IrBlock {
     program: IrProgram;
     body: StmtWithMeta[];
     temps: Record<number, IrTempMetadata>;
+    // map object instances to current generation
+    instances: Record<number, number[]>;
+    generations: Record<number, ObjectGeneration[]>;
     dead: boolean;
     continued: IrBlock;
     // declarations and assignments: { scope ID: { name: temp ID } }
     varDeclarations: Record<number, Record<string, number>>;
     varAssignments: Record<number, Record<string, number>>;
     private _nextTemp: number;
+    private _nextInstance: number;
 
     constructor(program: IrProgram) {
         this.id = -1;
         this.program = program;
         this.body = [];
         this.temps = {};
+        this.instances = {};
+        this.generations = {};
         this.varDeclarations = {};
         this.varAssignments = {};
-        this._nextTemp = 0;
+        this._nextTemp = this._nextInstance = 0;
         this.dead = false;
     }
 
     getTempMetadata(varId: number) { return this.temps[varId]; }
 
     addReference(varId: number, stmt: s.IrStmt) {
-        this.getTempMetadata(varId).references.push(stmt);
+        const meta = this.getTempMetadata(varId);
+        if (meta) {
+            meta.references.push(stmt);
+        }
     }
 
     addDeclaration(scopeId: number, name: string, tempId: number) {
@@ -175,6 +186,22 @@ export class IrBlock {
         };
         this.temps[varId] = meta;
         return varId;
+    }
+
+    nextInstance(): number {
+        const instanceId = this._nextInstance++;
+        this.instances[instanceId] = [0];
+        const gen = new ObjectGeneration();
+        this.generations[instanceId] = [gen];
+        return instanceId;
+    }
+
+    nextGeneration(instanceId: number): number {
+        const generations = this.generations[instanceId];
+        const gen = this.generations[instanceId].length;
+        generations.push(new ObjectGeneration(this.instances[instanceId].map((i) => generations[i])));
+        this.instances[instanceId] = [gen];
+        return gen;
     }
 
     push(stmt: StmtWithMeta) {
@@ -270,7 +297,7 @@ export class IrBlock {
         return this;
     }
 
-    return(expr?: e.TrivialExpr) {
+    return(expr?: e.IrTrivialExpr) {
         this.push({ kind: s.IrStmtType.Return, expr, });
         return this;
     }

@@ -1,4 +1,4 @@
-import { TrivialExpr, exprToString } from './expr';
+import { IrTrivialExpr, exprToString } from './expr';
 
 export interface TempVar {
     blockId: number,
