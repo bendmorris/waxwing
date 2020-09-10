@@ -172,7 +172,7 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                 case ir.IrStmtType.Loop: {
                     switch (stmt.loopType) {
                         case ir.LoopType.While: {
-                            // FIXME: if knownBranch is true but the loop breaks, eliminate the loop
+                            // TODO: if knownBranch is true but the loop breaks, eliminate the loop
                             // FIXME: a `continue` at the end of the body should be removed
                             if (stmt.knownBranch === false) {
                                 // noop

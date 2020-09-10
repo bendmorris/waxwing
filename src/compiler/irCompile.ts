@@ -207,6 +207,13 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             block.temp(block.id, id).expr(ir.exprFunction(def)).finish();
             return temp(id);
         }
+        case 'SequenceExpression': {
+            let last;
+            for (const expr of ast.expressions) {
+                last = decompose(expr);
+            }
+            return last;
+        }
     }
     // we don't know what this is, so treat it as an opaque, effectful expression
     // TODO: warning
