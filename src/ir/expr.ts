@@ -1,13 +1,12 @@
 import { Ast } from '../ast';
-import { Lvalue, LvalueTemp, lvalueTemp, lvalueToString, lvalueGlobal } from './lvalue';
-import { IrBlock } from './block';
+import { Lvalue, lvalueToString, lvalueGlobal, TempVar, tempToString } from './lvalue';
 import { FunctionDefinition } from './function';
-import { string, number } from 'yargs';
 
 export const enum IrExprType {
     // trivial
     Raw,
     Literal,
+    Temp,
     Identifier,
     Phi,
     This,
@@ -28,6 +27,7 @@ export function isTrivial(expr: IrExpr) {
     switch (expr.kind) {
         case IrExprType.Raw:
         case IrExprType.Literal:
+        case IrExprType.Temp:
         case IrExprType.Identifier:
         case IrExprType.Phi:
         case IrExprType.This:
@@ -67,6 +67,18 @@ export function exprLiteral(value: any): IrLiteralExpr {
     };
 }
 
+export interface IrTempExpr extends TempVar {
+    kind: IrExprType.Temp,
+}
+
+export function exprTemp(blockId: number, varId: number): IrTempExpr {
+    return {
+        kind: IrExprType.Temp,
+        blockId,
+        varId,
+    };
+}
+
 export interface IrIdentifierExpr {
     kind: IrExprType.Identifier,
     lvalue: Lvalue,
@@ -79,17 +91,13 @@ export function exprIdentifier(lvalue: Lvalue): IrIdentifierExpr {
     };
 }
 
-export function exprIdentifierTemp(blockId: number, varId: number): IrIdentifierExpr {
-    return exprIdentifier(lvalueTemp(blockId, varId));
-}
-
 export function exprIdentifierGlobal(name: string): IrIdentifierExpr {
     return exprIdentifier(lvalueGlobal(name));
 }
 
 export interface IrPhiExpr {
     kind: IrExprType.Phi,
-    lvalues: LvalueTemp[],
+    lvalues: TempVar[],
 }
 
 export interface IrThisExpr {
@@ -149,6 +157,7 @@ export function exprFunction(def: FunctionDefinition): IrFunctionExpr {
 export type IrTrivialExpr =
     IrRawExpr |
     IrLiteralExpr |
+    IrTempExpr |
     IrIdentifierExpr |
     IrPhiExpr |
     IrThisExpr |
@@ -255,9 +264,10 @@ export function exprToString(expr: IrExpr) {
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
         case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;
-        case IrExprType.Phi: return `phi(${expr.lvalues.map(lvalueToString).join(', ')})`;
+        case IrExprType.Phi: return `phi(${expr.lvalues.map(tempToString).join(', ')})`;
         case IrExprType.Property: return `${exprToString(expr.expr)}[${exprToString(expr.property)}]`;
         case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;
+        case IrExprType.Temp: return tempToString(expr);
         case IrExprType.This: return 'this';
         case IrExprType.Unop: return expr.prefix ? `${expr.operator}${exprToString(expr.expr)}` : `${exprToString(expr.expr)}${expr.operator}`;
     }

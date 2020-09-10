@@ -4,6 +4,7 @@ function f() goto 1
 1:
 $1:0 = true
 if $1:0 goto 2 else goto 3
+(goto 4)
 
 2:
 $2:0 = log("yes")

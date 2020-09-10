@@ -3,6 +3,7 @@ function f() goto 1
 
 1:
 while true goto 2
+(goto 3)
 
 2:
 $2:0 = console["log"]

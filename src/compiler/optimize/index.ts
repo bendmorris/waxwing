@@ -1,12 +1,10 @@
 import * as ir from '../../ir';
 import * as simplify from './simplify';
 import * as branchElimination from './branchElimination';
-import * as findEffects from './findEffects';
 
 const baseOptimizations: Optimization[] = [
     simplify,
     branchElimination,
-    findEffects,
 ]
 
 interface OptimizationMethods {

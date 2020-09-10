@@ -1,4 +1,4 @@
-import { Lvalue, lvalueToString } from './lvalue';
+import { TempVar, Lvalue, lvalueToString, tempToString } from './lvalue';
 import { IrExpr, IrTrivialExpr, exprToString } from './expr';
 import { IrBlock } from './block';
 import { FunctionDefinition } from './function';
@@ -6,6 +6,7 @@ import { FunctionDefinition } from './function';
 
 export const enum IrStmtType {
     ExprStmt,
+    Temp,
     Assignment,
     Set,
     Return,
@@ -30,7 +31,15 @@ export interface IrExprStmt extends IrBase {
 }
 
 /**
- * An assignment of an IrExpr to either a temp, register or global variable.
+ * An assignment of an IrExpr to a temp.
+ */
+export interface IrTempStmt extends IrBase, TempVar {
+    kind: IrStmtType.Temp,
+    expr: IrExpr,
+}
+
+/**
+ * An assignment to an lvalue.
  */
 export interface IrAssignmentStmt extends IrBase {
     kind: IrStmtType.Assignment,
@@ -43,7 +52,7 @@ export interface IrAssignmentStmt extends IrBase {
  */
 export interface IrSetStmt extends IrBase {
     kind: IrStmtType.Set,
-    lvalue: Lvalue,
+    object: IrTrivialExpr,
     property?: IrTrivialExpr,
     expr: IrTrivialExpr,
 }
@@ -107,6 +116,7 @@ export interface IrFunctionDeclarationStmt extends IrBase {
 
 export type IrStmt =
     IrExprStmt |
+    IrTempStmt |
     IrAssignmentStmt |
     IrSetStmt |
     IrReturnStmt |
@@ -122,11 +132,14 @@ export function stmtToString(stmt: IrStmt): string {
         case IrStmtType.ExprStmt: {
             return exprToString(stmt.expr);
         }
+        case IrStmtType.Temp: {
+            return `${tempToString(stmt)} = ${exprToString(stmt.expr)}`;
+        }
         case IrStmtType.Assignment: {
             return `${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Set: {
-            return `${lvalueToString(stmt.lvalue)}[${stmt.property ? exprToString(stmt.property) : ''}] = ${exprToString(stmt.expr)}`;
+            return `${exprToString(stmt.object)}[${stmt.property ? exprToString(stmt.property) : ''}] = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;

@@ -1,8 +1,6 @@
 import * as ir from '../ir';
 import { Ast } from '../ast';
-import { FunctionDefinition } from '../ir/function';
 import * as t from '@babel/types';
-import { effectMutation, IrStmtType, exprLiteral } from '../ir';
 
 const enum ScopeType {
     FunctionScope,
@@ -15,7 +13,7 @@ export class IrScope {
     id: number;
     parent?: IrScope;
     functionScope?: IrScope;
-    bindings: Record<string, number>;
+    bindings: Record<string, ir.TempVar>;
 
     constructor(program: ir.IrProgram, scopeType: ScopeType, parent?: IrScope) {
         this.id = parent ? (parent.id + 1) : 0;
@@ -37,7 +35,7 @@ export class IrScope {
         return new IrScope(this.program, ScopeType.BlockScope, this);
     }
 
-    getBinding(lval: t.LVal): number | undefined {
+    getBinding(lval: t.LVal): ir.TempVar | undefined {
         switch (lval.type) {
             case 'Identifier': {
                 return this.bindings[lval.name];
@@ -46,16 +44,16 @@ export class IrScope {
         return undefined;
     }
 
-    setBinding(lval: t.LVal, id: number) {
+    setBinding(lval: t.LVal, temp: ir.TempVar) {
         switch (lval.type) {
             case 'Identifier': {
-                this.bindings[lval.name] = id;
+                this.bindings[lval.name] = temp;
                 break;
             }
         }
     }
 
-    findScopeWithBinding(name: string) {
+    findScopeWithBinding(name: string): IrScope | undefined {
         let current: IrScope | undefined = this;
         while (current && current.bindings[name] === undefined) {
             current = current.parent;
@@ -74,22 +72,32 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
         return decomposeExpr(ctx, block, x);
     }
     function temp(id: number) {
-        return ir.exprIdentifierTemp(block.id, id);
+        return ir.exprTemp(block.id, id);
     }
     if (ast === null) {
         throw new Error("attempting to decompose null AST");
     }
     switch (ast.type) {
         case 'AssignmentExpression': {
-            // TODO
-            break;
+            switch (ast.operator) {
+                case '=': {
+                    // FIXME: update binding
+                    const decomposed = decompose(ast.right);
+                    const id = block.nextTemp();
+                    block.temp(block.id, id).expr(decomposed).finish();
+                    return temp(id);
+                }
+                default: {
+                    throw new Error('TODO');
+                }
+            }
         }
         case 'Identifier': {
             const found = ctx.findScopeWithBinding(ast.name);
             if (found) {
                 const binding = found.getBinding(ast);
                 if (binding !== undefined) {
-                    return temp(binding);
+                    return ir.exprTemp(binding.blockId, binding.varId);
                 }
             }
             return ir.exprIdentifierGlobal(ast.name);
@@ -105,36 +113,36 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
         case 'UnaryExpression': {
             const decomposed = decompose(ast.argument);
             const id = block.nextTemp();
-            block.assign().temp(id).unop(ast.operator, ast.prefix, decomposed).finish();
+            block.temp(block.id, id).unop(ast.operator, ast.prefix, decomposed).finish();
             return temp(id);
         }
-        // case 'UpdateExpression': {
-        //     const updateOps: Record<string, BinaryOperator> = {
-        //         '++': '+',
-        //         '--': '-',
-        //     };
-        //     if (ast.prefix) {
-        //         // prefix: provide the original value, and also update it
-        //         const decomposed = decompose(ast.argument);
-        //         const id = block.nextTemp();
-        //         block.assign().temp(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1)).finish();
-        //         // TODO: update binding
-        //         return ir.exprIdentifierTemp(id);
-        //     } else {
-        //         // suffix: update the value and use that new identifier
-        //         const decomposed = decompose(ast.argument);
-        //         const id = block.nextTemp();
-        //         block.assign().temp(id).binop(updateOps[ast.operator], decomposed, exprLiteral(1)).finish();
-        //         // TODO: update binding
-        //         return ir.exprIdentifierTemp(id);
-        //     }
-        // }
+        case 'UpdateExpression': {
+            const updateOps: Record<string, ir.BinaryOperator> = {
+                '++': '+',
+                '--': '-',
+            };
+            if (ast.prefix) {
+                // prefix: provide the original value, and also update it
+                const decomposed = decompose(ast.argument);
+                const id = block.nextTemp();
+                block.temp(block.id, id).binop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)).finish();
+                // ctx.setBinding(decomposed.lvalue, temp(block.id, id));
+                return temp(id);
+            } else {
+                // suffix: update the value and use that new identifier
+                const decomposed = decompose(ast.argument);
+                const id = block.nextTemp();
+                block.temp(block.id, id).binop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)).finish();
+                // ctx.setBinding(decomposed.lvalue, temp(block.id, id));
+                return decomposed;
+            }
+        }
         case 'BinaryExpression':
         case 'LogicalExpression': {
             const decomposedLeft = decompose(ast.left),
                  decomposedRight = decompose(ast.right);
             const id = block.nextTemp();
-            block.assign().temp(id).binop(ast.operator, decomposedLeft, decomposedRight).finish();
+            block.temp(block.id, id).binop(ast.operator, decomposedLeft, decomposedRight).finish();
             return temp(id);
         }
         case 'CallExpression':
@@ -142,32 +150,33 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             const callee = decompose(ast.callee),
                 args = ast.arguments.map(decompose);
             const id = block.nextTemp();
-            block.assign().temp(id).call(callee, args, ast.type === 'NewExpression').finish();
+            const stmt = block.temp(block.id, id).call(callee, args, ast.type === 'NewExpression').finish();
+            stmt.effects.push(ir.effectIo());
             return temp(id);
         }
         case 'MemberExpression': {
             const expr = decompose(ast.object),
                 prop = ast.computed ? decompose(ast.property) : ir.exprLiteral((ast.property as t.Identifier).name);
             const id = block.nextTemp();
-            block.assign().temp(id).property(expr, prop).finish();
+            block.temp(block.id, id).property(expr, prop).finish();
             return temp(id);
         }
         case 'ArrayExpression': {
             const id = block.nextTemp();
             const instanceId = block.nextInstance();
-            block.assign().temp(id).expr(ir.exprEmptyArray(instanceId)).finish();
+            block.temp(block.id, id).expr(ir.exprEmptyArray(instanceId)).finish();
             for (const value of ast.elements) {
                 const val = decompose(value);
-                const stmt = block.set().temp(id).expr(val).finish();
+                const stmt = block.set().object(temp(id)).expr(val).finish();
                 const newGeneration = block.nextGeneration(instanceId);
-                stmt.effects.push(effectMutation(instanceId, newGeneration));
+                stmt.effects.push(ir.effectMutation(instanceId, newGeneration));
             }
             return temp(id);
         }
         case 'ObjectExpression': {
             const id = block.nextTemp();
             const instanceId = block.nextInstance();
-            block.assign().temp(id).expr(ir.exprEmptyObject(instanceId)).finish();
+            block.temp(block.id, id).expr(ir.exprEmptyObject(instanceId)).finish();
             for (const value of ast.properties) {
                 switch (value.type) {
                     case 'ObjectMethod': {
@@ -177,9 +186,9 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                     case 'ObjectProperty': {
                         const key = value.key.type == 'Identifier' ? ir.exprLiteral(value.key.name) : decompose(value.key);
                         const val = decompose(value.value);
-                        const stmt = block.set().temp(id).propertyName(key).expr(val).finish();
+                        const stmt = block.set().object(temp(id)).propertyName(key).expr(val).finish();
                         const newGeneration = block.nextGeneration(instanceId);
-                        stmt.effects.push(effectMutation(instanceId, newGeneration));
+                        stmt.effects.push(ir.effectMutation(instanceId, newGeneration));
                         break;
                     }
                     case 'SpreadElement': {
@@ -191,11 +200,11 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             return temp(id);
         }
         case 'FunctionExpression': {
-            const def = new FunctionDefinition(ctx.program);
+            const def = new ir.FunctionDefinition(ctx.program);
             def.name = ast.id ? ast.id.name : undefined;
             compileStmt(ctx.childFunction(), def.body, ast.body);
             const id = block.nextTemp();
-            block.assign().temp(id).expr(ir.exprFunction(def)).finish();
+            block.temp(block.id, id).expr(ir.exprFunction(def)).finish();
             return temp(id);
         }
     }
@@ -238,9 +247,9 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                 const last = block.lastStmt();
                 if (last) {
                     switch (last.kind) {
-                        case IrStmtType.Break:
-                        case IrStmtType.Continue:
-                        case IrStmtType.Return: {
+                        case ir.IrStmtType.Break:
+                        case ir.IrStmtType.Continue:
+                        case ir.IrStmtType.Return: {
                             break compileBlock;
                         }
                         case ir.IrStmtType.If:
@@ -262,14 +271,14 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                     case 'Identifier': {
                         const decomposed = decl.init ? decompose(decl.init) : ir.exprLiteral(undefined);
                         let id;
-                        if (decomposed.kind === ir.IrExprType.Identifier && decomposed.lvalue.kind === ir.LvalueType.Temp) {
-                            id = decomposed.lvalue.varId;
+                        if (decomposed.kind === ir.IrExprType.Temp) {
+                            id = decomposed.varId;
                         } else {
                             id = block.nextTemp();
-                            block.assign().temp(id).expr(decomposed).finish();
+                            block.temp(block.id, id).expr(decomposed).finish();
                         }
                         const scope = ast.kind === 'var' ? ctx.functionScope : ctx;
-                        scope.setBinding(decl.id, id);
+                        scope.setBinding(decl.id, ir.temp(block.id, id));
                         block.addDeclaration(scope.id, decl.id.name, id);
                         break;
                     }
@@ -295,7 +304,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             if (ast.init) {
                 recurse(ast.init);
             }
-            const condition = ast.test ? decompose(ast.test) : exprLiteral(true);
+            const condition = ast.test ? decompose(ast.test) : ir.exprLiteral(true);
             const stmt = block.while();
             stmt.expr(condition);
             const body = stmt.body();
@@ -335,7 +344,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             break;
         }
         case 'FunctionDeclaration': {
-            const def = new FunctionDefinition(ctx.program);
+            const def = new ir.FunctionDefinition(ctx.program);
             def.name = ast.id.name;
             block.function(def);
             compileStmt(ctx.childFunction(), def.body, ast.body);
@@ -347,8 +356,8 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
         }
         default: {
             const decomposed = decompose(ast);
-            if (decomposed.kind !== ir.IrExprType.Identifier) {
-                block.assign().temp(block.nextTemp()).expr(decomposed).finish();
+            if (decomposed.kind !== ir.IrExprType.Temp) {
+                block.temp(block.id, block.nextTemp()).expr(decomposed).finish();
             }
         }
     }

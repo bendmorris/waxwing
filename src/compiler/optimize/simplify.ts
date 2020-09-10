@@ -26,18 +26,22 @@ const staticBinops = {
     '??': (a, b) => a ?? b,
 };
 
+const staticUnops = {
+    '+': (a) => +a,
+    '-': (a) => -a,
+    'void': () => undefined,
+}
+
 /**
  * Statically evaluate the given expression as far as possible.
  */
 export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialExpr | undefined) {
     switch (expr.kind) {
-        case ir.IrExprType.Identifier: {
-            if (expr.lvalue.kind === ir.LvalueType.Temp) {
-                const definingBlock = block.program.getBlock(expr.lvalue.blockId);
-                const meta = definingBlock.getTempMetadata(expr.lvalue.varId);
-                if (meta && meta.definition) {
-                    return simplifyExpr(definingBlock, meta.definition);
-                }
+        case ir.IrExprType.Temp: {
+            const definingBlock = block.program.getBlock(expr.blockId);
+            const meta = definingBlock.getTempMetadata(expr.varId);
+            if (meta && meta.definition) {
+                return simplifyExpr(definingBlock, meta.definition);
             }
             return expr;
         }
@@ -51,6 +55,17 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialE
             ) {
                 return ir.exprLiteral(staticBinops[expr.operator](lhs.value, rhs.value));
             }
+            break;
+        }
+        case ir.IrExprType.Unop: {
+            const operand = simplifyExpr(block, expr.expr);
+            if (operand &&
+                operand.kind === ir.IrExprType.Literal &&
+                staticUnops[expr.operator]
+            ) {
+                return ir.exprLiteral(staticUnops[expr.operator](operand.value));
+            }
+            break;
         }
         default: {
             if (ir.isTrivial(expr)) {

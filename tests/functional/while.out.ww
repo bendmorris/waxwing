@@ -3,6 +3,7 @@ function f() goto 1
 
 1:
 while true goto 2
+(goto 3)
 
 2:
 $2:0 = log("loop body 1")
@@ -11,6 +12,7 @@ break
 3:
 $3:0 = true || false
 while $3:0 goto 4
+(goto 5)
 
 4:
 $4:0 = log("loop body 2")

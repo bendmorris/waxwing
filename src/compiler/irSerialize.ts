@@ -10,13 +10,6 @@ function isValidIdentifier(x) {
 
 function lvalueToAst(block: ir.IrBlock, lvalue: ir.Lvalue): t.Expression {
     switch (lvalue.kind) {
-        case ir.LvalueType.Temp: {
-            const meta = block.program.getBlock(lvalue.blockId).getTempMetadata(lvalue.varId);
-            if (!meta || !meta.definition) {
-                throw new Error(`Unrecognized temp variable: ${ir.lvalueToString(lvalue)}`);
-            }
-            return exprToAst(block, meta.definition);
-        }
         // case ir.LvalueType.Register: {
         //     throw new Error("TODO");
         // }
@@ -31,6 +24,13 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
         return exprToAst(block, expr);
     }
     switch (expr.kind) {
+        case ir.IrExprType.Temp: {
+            const meta = block.program.getBlock(expr.blockId).getTempMetadata(expr.varId);
+            if (!meta || !meta.definition) {
+                throw new Error(`Unrecognized temp variable: ${ir.tempToString(expr)}`);
+            }
+            return exprToAst(block, meta.definition);
+        }
         case ir.IrExprType.Arguments: {
             return t.identifier('arguments');
         }
@@ -123,11 +123,6 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
             switch (stmt.kind) {
                 case ir.IrStmtType.Assignment: {
                     switch (stmt.lvalue.kind) {
-                        case ir.LvalueType.Temp: {
-                            // we don't need to touch temp values; they will either
-                            // be promoted to registers, or inlined
-                            break;
-                        }
                         default: throw new Error('TODO');
                     }
                     break;
@@ -221,18 +216,26 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                     let lhs;
                     if (stmt.property) {
                         if (stmt.property.kind === ir.IrExprType.Literal && typeof stmt.property.value === 'string' && isValidIdentifier(stmt.property.value)) {
-                            lhs = t.memberExpression(lvalueToAst(block, stmt.lvalue), t.identifier(stmt.property.value), false);
+                            lhs = t.memberExpression(exprToAst(block, stmt.object), t.identifier(stmt.property.value), false);
                         } else {
-                            lhs = t.memberExpression(lvalueToAst(block, stmt.lvalue), exprToAst(block, stmt.property), false);
+                            lhs = t.memberExpression(exprToAst(block, stmt.object), exprToAst(block, stmt.property), false);
                         }
                         stmts.push(t.expressionStatement(t.assignmentExpression('=', lhs, exprToAst(block, stmt.expr))));
                     } else {
                         stmts.push(t.expressionStatement(
                             t.callExpression(
-                                t.memberExpression(lvalueToAst(block, stmt.lvalue), t.identifier('push')),
+                                t.memberExpression(exprToAst(block, stmt.object), t.identifier('push')),
                                 [exprToAst(block, stmt.expr)]
                             )
                         ));
+                    }
+                    break;
+                }
+                case ir.IrStmtType.Temp: {
+                    // we don't need assignments for temp values...
+                    if (stmt.effects.length) {
+                        // ...but we need to preserve effects
+                        stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
                     }
                     break;
                 }

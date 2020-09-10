@@ -1,7 +1,6 @@
 import * as s from './stmt';
 import * as e from './expr';
 import * as u from './utils';
-import { lvalueTemp, LvalueType, TempVar } from './lvalue';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
@@ -59,16 +58,12 @@ class BaseExprBuilder<T extends s.IrStmt & { expr: e.IrExpr }> extends Statement
 
 export class ExprStmtBuilder extends BaseExprBuilder<s.IrExprStmt> {}
 
-export class AssignmentBuilder extends BaseExprBuilder<s.IrAssignmentStmt> {
-    temp(id: number) {
-        this.stmt.lvalue = lvalueTemp(this.block.id, id);
-        return this;
-    }
-}
+export class TempBuilder extends BaseExprBuilder<s.IrTempStmt> {}
+export class AssignmentBuilder extends BaseExprBuilder<s.IrAssignmentStmt> {}
 
 export class SetBuilder extends BaseExprBuilder<s.IrSetStmt> {
-    temp(id: number) {
-        this.stmt.lvalue = lvalueTemp(this.block.id, id);
+    object(expr: e.IrTrivialExpr) {
+        this.stmt.object = expr;
         return this;
     }
 
@@ -212,32 +207,20 @@ export class IrBlock {
         });
         let assignedTemp = -1;
         switch (stmt.kind) {
-            case s.IrStmtType.Assignment: {
-                switch (stmt.lvalue.kind) {
-                    case LvalueType.Temp: {
-                        if (stmt.lvalue.varId === undefined) {
-                            throw new TypeError("Attempting to assign undefined variable");
-                        }
-                        assignedTemp = stmt.lvalue.varId;
-                        this.temps[assignedTemp].definition = stmt.expr;
-                        break;
-                    }
-                    default: {}
+            case s.IrStmtType.Temp: {
+                if (stmt.varId === undefined) {
+                    throw new TypeError("Attempting to assign undefined variable");
                 }
+                assignedTemp = stmt.varId;
+                this.temps[assignedTemp].definition = stmt.expr;
                 break;
             }
         }
         u.applyToExprsInStmt((expr) => {
             switch (expr.kind) {
-                case e.IrExprType.Identifier: {
-                    switch (expr.lvalue.kind) {
-                        case LvalueType.Temp: {
-                            if (expr.lvalue.varId !== assignedTemp) {
-                                this.program.getBlock(expr.lvalue.blockId).addReference(expr.lvalue.varId, stmt);
-                            }
-                            break;
-                        }
-                        default: {}
+                case e.IrExprType.Temp: {
+                    if (expr.varId !== assignedTemp) {
+                        this.program.getBlock(expr.blockId).addReference(expr.varId, stmt);
                     }
                     break;
                 }
@@ -252,13 +235,18 @@ export class IrBlock {
         return new ExprStmtBuilder(this, stmt);
     }
 
+    temp(blockId: number, varId: number) {
+        const stmt = { kind: s.IrStmtType.Temp, blockId, varId, expr: undefined} as s.IrTempStmt;
+        return new TempBuilder(this, stmt);
+    }
+
     assign() {
         const stmt = { kind: s.IrStmtType.Assignment, lvalue: undefined, expr: undefined} as s.IrAssignmentStmt;
         return new AssignmentBuilder(this, stmt);
     }
 
     set() {
-        const stmt = { kind: s.IrStmtType.Set, lvalue: undefined, property: undefined, expr: undefined} as s.IrSetStmt;
+        const stmt = { kind: s.IrStmtType.Set, object: undefined, property: undefined, expr: undefined} as s.IrSetStmt;
         return new SetBuilder(this, stmt);
     }
 

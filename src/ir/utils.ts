@@ -66,7 +66,7 @@ export function applyToExprsInStmt(f: IrTrivialExprCallback, stmt: IrStmt) {
             break;
         }
         case IrStmtType.Set: {
-            applyToExprsInExpr(f, exprIdentifier(stmt.lvalue));
+            applyToExprsInExpr(f, stmt.object);
             if (stmt.property) {
                 applyToExprsInExpr(f, stmt.property);
             }
