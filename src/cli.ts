@@ -44,7 +44,7 @@ Waxwing, an optimizing JavaScript compiler.
         })
         .option('compact', {
             alias: 'c',
-            description: 'generate compac code',
+            description: 'generate compact code',
             type: 'boolean',
         })
         .option('ir', {
