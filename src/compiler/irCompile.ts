@@ -214,6 +214,24 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             }
             return last;
         }
+        case 'ConditionalExpression': {
+            const condition = decompose(ast.test);
+            const bodyExpr = decompose(ast.consequent);
+            const elseExpr = decompose(ast.alternate);
+            const stmt = block.if();
+            stmt.condition(condition);
+            const phiVar = block.nextTemp();
+            const bodyBlock = stmt.body(),
+                elseBlock = stmt.else();
+            const bodyVar = bodyBlock.nextTemp(),
+                elseVar = elseBlock.nextTemp();
+            bodyBlock.temp(stmt.body().id, bodyVar).expr(bodyExpr).finish();
+            elseBlock.temp(stmt.else().id, elseVar).expr(elseExpr).finish();
+            stmt.finish();
+            // FIXME: better way to split basic blocks? this phi goes in the next one
+            block.temp(block.id, phiVar).expr(ir.exprPhi([ir.temp(bodyBlock.id, bodyVar), ir.temp(elseBlock.id, elseVar)])).finish();
+            return ir.exprTemp(block.id, phiVar);
+        }
     }
     // we don't know what this is, so treat it as an opaque, effectful expression
     // TODO: warning
@@ -261,6 +279,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                         }
                         case ir.IrStmtType.If:
                         case ir.IrStmtType.Loop: {
+                            // FIXME: use a cursor with a reference to the block, do this automatically
                             const next = program.block();
                             block.continued = next;
                             block = next;

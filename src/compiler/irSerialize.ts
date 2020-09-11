@@ -1,4 +1,4 @@
-import { Ast } from '../ast';
+import { Options } from '../options';
 import * as ir from '../ir';
 import * as babel from '@babel/core';
 import * as t from '@babel/types';
@@ -117,7 +117,7 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
     }
     while (block) {
         for (const stmt of block.body) {
-            if (stmt.dead) {
+            if (!stmt.live) {
                 continue;
             }
             switch (stmt.kind) {
@@ -249,8 +249,8 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
 /**
  * Convert a block of WWIR into a string of JS source.
  */
-export function irSerialize(program: ir.IrProgram): string {
+export function irSerialize(program: ir.IrProgram, options: Options): string {
     const node = t.program(blockToAst(program.blocks[0]));
-    const { code } = babel.transformFromAstSync(node, undefined, { });
+    const { code } = babel.transformFromAstSync(node, undefined, { compact: options.compact });
     return code + '\n';
 }

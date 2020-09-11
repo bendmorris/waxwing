@@ -2,6 +2,8 @@
 
 Waxwing is an optimizing JavaScript source-to-source compiler - a compiler that takes JS as input, and outputs optimized JS. This is a **work in progress** and is not ready to be used!
 
+Waxwing is not a minifier. You should run it prior to minifying.
+
 ## Setup
 
 To build:
@@ -26,3 +28,16 @@ waxwing path/to/script.js
 ```
 
 Run `waxwing --help` for more usage information.
+
+## Hey, lookee here
+
+```
+$ terser tests/functional/update_expr.in.js -c
+function f(){var x=1,y=2+x++;return 3+ ++y}
+
+$ closure-compiler --js tests/functional/update_expr.in.js
+function f(){var a=1,a=a++ +2;return++a+3};
+
+$ waxwing tests/functional/update_expr.in.js -c
+function f(){return 7;}
+```

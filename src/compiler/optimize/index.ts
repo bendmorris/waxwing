@@ -23,7 +23,7 @@ export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
     if (opt.optimizeBlock || opt.optimizeStmt) {
         for (let block of program.blocks) {
             while (block) {
-                if (block.dead) {
+                if (!block.live) {
                     break;
                 }
                 if (opt.optimizeBlock) {

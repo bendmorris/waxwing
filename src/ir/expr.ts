@@ -97,7 +97,14 @@ export function exprIdentifierGlobal(name: string): IrIdentifierExpr {
 
 export interface IrPhiExpr {
     kind: IrExprType.Phi,
-    lvalues: TempVar[],
+    temps: TempVar[],
+}
+
+export function exprPhi(temps: TempVar[]): IrPhiExpr {
+    return {
+        kind: IrExprType.Phi,
+        temps,
+    };
 }
 
 export interface IrThisExpr {
@@ -264,7 +271,7 @@ export function exprToString(expr: IrExpr) {
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
         case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;
-        case IrExprType.Phi: return `phi(${expr.lvalues.map(tempToString).join(', ')})`;
+        case IrExprType.Phi: return `phi(${expr.temps.map(tempToString).join(', ')})`;
         case IrExprType.Property: return `${exprToString(expr.expr)}[${exprToString(expr.property)}]`;
         case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;
         case IrExprType.Temp: return tempToString(expr);

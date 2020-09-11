@@ -101,7 +101,7 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
 
 export interface IrStmtMetadata {
     id: number,
-    dead: boolean,
+    live: boolean,
     knownBranch?: boolean,
     effects: Effect[],
     continued?: IrBlock,
@@ -124,7 +124,7 @@ export class IrBlock {
     // map object instances to current generation
     instances: Record<number, number[]>;
     generations: Record<number, ObjectGeneration[]>;
-    dead: boolean;
+    live: boolean;
     continued: IrBlock;
     // declarations and assignments: { scope ID: { name: temp ID } }
     varDeclarations: Record<number, Record<string, number>>;
@@ -142,7 +142,7 @@ export class IrBlock {
         this.varDeclarations = {};
         this.varAssignments = {};
         this._nextTemp = this._nextInstance = 0;
-        this.dead = false;
+        this.live = true;
     }
 
     getTempMetadata(varId: number) { return this.temps[varId]; }
@@ -202,7 +202,7 @@ export class IrBlock {
     push(stmt: StmtWithMeta) {
         stmt.id = this.body.length;
         Object.assign(stmt, {
-            dead: false,
+            live: true,
             effects: [],
         });
         let assignedTemp = -1;

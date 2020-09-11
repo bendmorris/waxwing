@@ -6,6 +6,7 @@ export interface Options {
     optimizeForSize: boolean,
     verbose: number,
     outputIr: boolean,
+    compact: boolean,
 }
 
 export function makeOptions(options: Partial<Options> = {}): Options {
@@ -21,5 +22,6 @@ export function makeOptions(options: Partial<Options> = {}): Options {
         optimizeForSize: false,
         verbose: 0,
         outputIr: false,
+        compact: false,
     }, options);
 }

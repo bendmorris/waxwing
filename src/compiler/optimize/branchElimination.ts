@@ -10,10 +10,10 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
                 stmt.knownBranch = !!simpleTest.value;
                 if (stmt.knownBranch) {
                     if (stmt.elseBody) {
-                        stmt.elseBody.dead = true;
+                        stmt.elseBody.live = false;
                     }
                 } else {
-                    stmt.body.dead = true;
+                    stmt.body.live = false;
                 }
             }
             break;
@@ -25,7 +25,7 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
                     if (simpleTest && simpleTest.kind === ir.IrExprType.Literal) {
                         stmt.knownBranch = !!simpleTest.value;
                         if (!stmt.knownBranch) {
-                            stmt.dead = true;
+                            stmt.live = false;
                         }
                     }
                     break;

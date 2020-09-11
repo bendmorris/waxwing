@@ -30,5 +30,5 @@ export function compile(options: Options): string {
     optimizeProgram(ir);
 
     // serialize IR into a JS string
-    return irSerialize(ir);
+    return irSerialize(ir, options);
 }

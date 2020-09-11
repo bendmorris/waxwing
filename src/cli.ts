@@ -42,6 +42,11 @@ Waxwing, an optimizing JavaScript compiler.
             description: 'display verbose logs (can be repeated to increase verbosity)',
             type: 'boolean'
         })
+        .option('compact', {
+            alias: 'c',
+            description: 'generate compac code',
+            type: 'boolean',
+        })
         .option('ir', {
             description: 'output WWIR instead of JS',
             type: 'boolean',
@@ -57,6 +62,7 @@ const options = makeOptions({
     out: args.out as string,
     verbose: args.verbose as number,
     outputIr: args.ir as boolean,
+    compact: args.compact as boolean,
 });
 
 const result = compile(options);
