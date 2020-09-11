@@ -3,7 +3,7 @@ import { IrBlock } from './block';
 import { IrStmtType, IrStmt } from './stmt';
 
 type StmtCallback = (x: IrStmt) => void;
-type IrTrivialExprCallback = (x: IrTrivialExpr) => void;
+type IrExprCallback = (x: IrExpr) => void;
 
 export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
     for (const stmt of block.body) {
@@ -29,13 +29,13 @@ export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
     }
 }
 
-export function applyToExprsInBlock(f: IrTrivialExprCallback, block: IrBlock) {
+export function applyToExprsInBlock(f: IrExprCallback, block: IrBlock) {
     for (const stmt of block.body) {
         applyToExprsInStmt(f, stmt);
     }
 }
 
-export function applyToExprsInStmt(f: IrTrivialExprCallback, stmt: IrStmt) {
+export function applyToExprsInStmt(f: IrExprCallback, stmt: IrStmt) {
     switch (stmt.kind) {
         case IrStmtType.Assignment:
         case IrStmtType.ExprStmt: {
@@ -75,20 +75,9 @@ export function applyToExprsInStmt(f: IrTrivialExprCallback, stmt: IrStmt) {
     }
 }
 
-export function applyToExprsInExpr(f: IrTrivialExprCallback, expr: IrExpr) {
+export function applyToExprsInExpr(f: IrExprCallback, expr: IrExpr) {
+    f(expr);
     switch (expr.kind) {
-        // trivial
-        case IrExprType.Arguments:
-        case IrExprType.GlobalThis:
-        case IrExprType.Identifier:
-        case IrExprType.Literal:
-        case IrExprType.Next:
-        case IrExprType.Phi:
-        case IrExprType.Raw:
-        case IrExprType.This: {
-            f(expr);
-            break;
-        }
         // special case for function expressions
         case IrExprType.Function: {
             applyToExprsInBlock(f, expr.def.body);

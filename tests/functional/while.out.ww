@@ -2,25 +2,31 @@
 function f() goto 1
 
 1:
-while true goto 2
-(goto 3)
+while something goto 2
+(goto 4)
 
 2:
 $2:0 = log("loop body 1")
-break
+if somethingElse goto 3
 
 3:
-$3:0 = true || false
-while $3:0 goto 4
-(goto 5)
+break
 
 4:
-$4:0 = log("loop body 2")
-continue
+$4:0 = true || false
+while $4:0 goto 5
+(goto 7)
 
 5:
-$5:0 = true && false
-do while $5:0 goto 6
+$5:0 = log("loop body 2")
+if somethingElse goto 6
 
 6:
-$6:0 = log("loop body 3")
+continue
+
+7:
+$7:0 = true && false
+do while $7:0 goto 8
+
+8:
+$8:0 = log("loop body 3")

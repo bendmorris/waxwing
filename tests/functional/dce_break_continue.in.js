@@ -1,13 +1,17 @@
 function f() {
-    while (true) {
+    while (inscrutableGlobal) {
         console.log("hello");
-        break;
-        console.log("unreachable");        
+        if (inscrutableGlobal2) {
+            break;
+            console.log("unreachable");        
+        }
     }
 
     do {
         console.log("hello");
-        continue;
-        console.log("unreachable");        
-    } while (false);
+        if (inscrutableGlobal4) {
+            continue;
+            console.log("unreachable");
+        }
+    } while (inscrutableGlobal3);
 }

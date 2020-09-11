@@ -1,8 +1,14 @@
 function f() {
-    while (true) {
+    while (inscrutableGlobal) {
         console.log("hello");
-        break;
+        if (inscrutableGlobal2) {
+            break;
+        }
     }
-
-    console.log("hello");
+    do {
+        console.log("hello");
+        if (inscrutableGlobal4) {
+            continue;
+        }
+    } while (inscrutableGlobal3);
 }

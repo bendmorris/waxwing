@@ -158,3 +158,13 @@ export function stmtToString(stmt: IrStmt): string {
         }
     }
 }
+
+export function isBlockBoundary(stmt: IrStmt) {
+    switch (stmt.kind) {
+        case IrStmtType.If:
+        case IrStmtType.Loop: {
+            return true;
+        }
+    }
+    return false;
+}

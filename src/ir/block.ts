@@ -13,7 +13,7 @@ class StatementBuilder<T extends s.IrStmt> {
     stmt: T;
 
     constructor(block: IrBlock, stmt: T) {
-        this.block = block;
+        this.block = (stmt as StmtWithMeta).block = block;
         this.program = block.program;
         this.stmt = stmt;
     }
@@ -80,11 +80,11 @@ export class IfBuilder extends StatementBuilder<s.IrIfStmt> {
     }
 
     body() {
-        return this.stmt.body ?? (this.stmt.body = this.program.block());
+        return this.stmt.body ?? (this.stmt.body = this.block.containedBlock(this.stmt));
     }
 
     else() {
-        return this.stmt.elseBody ?? (this.stmt.elseBody = this.program.block());
+        return this.stmt.elseBody ?? (this.stmt.elseBody = this.block.containedBlock(this.stmt));
     }
 }
 
@@ -95,12 +95,12 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
     }
 
     body() {
-        return this.stmt.body ?? (this.stmt.body = this.program.block());
+        return this.stmt.body ?? (this.stmt.body = this.block.containedBlock(this.stmt));
     }
 }
 
 export interface IrStmtMetadata {
-    id: number,
+    block: IrBlock,
     live: boolean,
     knownBranch?: boolean,
     effects: Effect[],
@@ -111,7 +111,8 @@ export type StmtWithMeta = s.IrStmt & Partial<IrStmtMetadata>;
 
 export interface IrTempMetadata {
     varId: number,
-    references: s.IrStmt[],
+    origin: StmtWithMeta,
+    references: StmtWithMeta[],
     definition?: e.IrExpr,
     inlined: boolean,
 }
@@ -119,6 +120,7 @@ export interface IrTempMetadata {
 export class IrBlock {
     id: number;
     program: IrProgram;
+    container?: StmtWithMeta;
     body: StmtWithMeta[];
     temps: Record<number, IrTempMetadata>;
     // map object instances to current generation
@@ -135,6 +137,7 @@ export class IrBlock {
     constructor(program: IrProgram) {
         this.id = -1;
         this.program = program;
+        this.container = undefined;
         this.body = [];
         this.temps = {};
         this.instances = {};
@@ -176,6 +179,7 @@ export class IrBlock {
         const meta = {
             varId,
             references: [],
+            origin: undefined,
             definition: undefined,
             inlined: false,
         };
@@ -199,10 +203,16 @@ export class IrBlock {
         return gen;
     }
 
+    containedBlock(container?: StmtWithMeta) {
+        const block = this.program.block();
+        block.container = container;
+        return block;
+    }
+
     push(stmt: StmtWithMeta) {
-        stmt.id = this.body.length;
+        stmt.block = this;
         Object.assign(stmt, {
-            live: true,
+            live: false,
             effects: [],
         });
         let assignedTemp = -1;
@@ -212,6 +222,7 @@ export class IrBlock {
                     throw new TypeError("Attempting to assign undefined variable");
                 }
                 assignedTemp = stmt.varId;
+                this.temps[assignedTemp].origin = stmt;
                 this.temps[assignedTemp].definition = stmt.expr;
                 break;
             }
@@ -276,22 +287,27 @@ export class IrBlock {
     }
 
     break() {
-        this.push({ kind: s.IrStmtType.Break, });
-        return this;
+        const stmt: StmtWithMeta = { kind: s.IrStmtType.Break, };
+        this.push(stmt);
+        return stmt;
     }
 
     continue() {
-        this.push({ kind: s.IrStmtType.Continue, });
-        return this;
+        const stmt: StmtWithMeta = { kind: s.IrStmtType.Continue, };
+        this.push(stmt);
+        return stmt;
     }
 
     return(expr?: e.IrTrivialExpr) {
-        this.push({ kind: s.IrStmtType.Return, expr, });
-        return this;
+        const stmt: StmtWithMeta = { kind: s.IrStmtType.Return, expr, };
+        this.push(stmt);
+        return stmt;
     }
 
     function(def: FunctionDefinition) {
-        this.push({ kind: s.IrStmtType.FunctionDeclaration, def})
+        const stmt: StmtWithMeta = { kind: s.IrStmtType.FunctionDeclaration, def};
+        this.push(stmt)
+        return stmt;
     }
 
     toString(): string {

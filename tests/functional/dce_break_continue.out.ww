@@ -2,18 +2,24 @@
 function f() goto 1
 
 1:
-while true goto 2
-(goto 3)
+while inscrutableGlobal goto 2
+(goto 4)
 
 2:
 $2:0 = console["log"]
 $2:1 = $2:0("hello")
-break
+if inscrutableGlobal2 goto 3
 
 3:
-do while false goto 4
+break
 
 4:
-$4:0 = console["log"]
-$4:1 = $4:0("hello")
+do while inscrutableGlobal3 goto 5
+
+5:
+$5:0 = console["log"]
+$5:1 = $5:0("hello")
+if inscrutableGlobal4 goto 6
+
+6:
 continue

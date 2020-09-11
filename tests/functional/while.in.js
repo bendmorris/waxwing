@@ -1,12 +1,16 @@
 function f() {
-    while (true) {
+    while (something) {
         log("loop body 1");
-        break;
+        if (somethingElse) {
+            break;
+        }
     }
 
     while (true || false) {
         log("loop body 2");
-        continue;
+        if (somethingElse) {
+            continue;
+        }
     }
 
     do {

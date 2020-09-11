@@ -31,7 +31,7 @@ function normalize(s) {
  * Expected WWIR output: X.out.ww
  * Expected JS output: X.out.js
  */
-describe('functional tests', () => {
+describe('functional tests: JS -> WWIR', () => {
     for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
         // WWIR
         {
@@ -45,6 +45,11 @@ describe('functional tests', () => {
                 });
             }
         }
+    }
+});
+
+describe('functional tests: JS -> JS', () => {
+    for (const testPath of globDir(path.join('tests', 'functional'), '.*\.in\.js')) {
         // JS
         {
             const outFile = testPath.replace(/\.in\.js$/, '.out.js');
