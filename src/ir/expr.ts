@@ -71,7 +71,15 @@ export interface IrTempExpr extends TempVar {
     kind: IrExprType.Temp,
 }
 
-export function exprTemp(blockId: number, varId: number): IrTempExpr {
+export function exprTemp(temp: TempVar): IrTempExpr {
+    return {
+        kind: IrExprType.Temp,
+        blockId: temp.blockId,
+        varId: temp.varId,
+    };
+}
+
+export function exprTemp2(blockId: number, varId: number): IrTempExpr {
     return {
         kind: IrExprType.Temp,
         blockId,

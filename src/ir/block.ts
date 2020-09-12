@@ -6,6 +6,7 @@ import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
 import { Effect } from './effect';
 import { ObjectGeneration } from './object';
+import { TempVar, temp } from './lvalue';
 
 class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
@@ -104,7 +105,6 @@ export interface IrStmtMetadata {
     live: boolean,
     knownBranch?: boolean,
     effects: Effect[],
-    continued?: IrBlock,
 }
 
 export type StmtWithMeta = s.IrStmt & Partial<IrStmtMetadata>;
@@ -127,10 +127,12 @@ export class IrBlock {
     instances: Record<number, number[]>;
     generations: Record<number, ObjectGeneration[]>;
     live: boolean;
-    continued: IrBlock;
+    prevBlock?: IrBlock;
+    nextBlock?: IrBlock;
     // declarations and assignments: { scope ID: { name: temp ID } }
     varDeclarations: Record<number, Record<string, number>>;
     varAssignments: Record<number, Record<string, number>>;
+    available: Record<string, s.IrTempStmt>;
     private _nextTemp: number;
     private _nextInstance: number;
 
@@ -144,6 +146,7 @@ export class IrBlock {
         this.generations = {};
         this.varDeclarations = {};
         this.varAssignments = {};
+        this.available = {};
         this._nextTemp = this._nextInstance = 0;
         this.live = true;
     }
@@ -224,6 +227,7 @@ export class IrBlock {
                 assignedTemp = stmt.varId;
                 this.temps[assignedTemp].origin = stmt;
                 this.temps[assignedTemp].definition = stmt.expr;
+                this.available[e.exprToString(stmt.expr)] = stmt;
                 break;
             }
         }
@@ -244,6 +248,20 @@ export class IrBlock {
     expr() {
         const stmt = { kind: s.IrStmtType.ExprStmt, expr: undefined} as s.IrExprStmt;
         return new ExprStmtBuilder(this, stmt);
+    }
+
+    /**
+     * If this expression is already available, return the existing temp var.
+     * Otherwise, add a new one and return it.
+     */
+    addTemp(expr: e.IrExpr): s.IrTempStmt & Partial<IrStmtMetadata> {
+        // TODO: canonicalize expressions, e.g. operand sorting
+        const key = e.exprToString(expr);
+        if (this.available[key]) {
+            return this.available[key];
+        }
+        const tempId = this.nextTemp();
+        return this.temp(this.id, tempId).expr(expr).finish() as s.IrTempStmt;
     }
 
     temp(blockId: number, varId: number) {

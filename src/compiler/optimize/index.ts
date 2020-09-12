@@ -34,7 +34,7 @@ export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
                         opt.optimizeStmt(block, stmt);
                     }
                 }
-                block = block.continued;
+                block = block.nextBlock;
             }
         }
     }

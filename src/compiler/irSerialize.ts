@@ -241,7 +241,7 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                 }
             }
         }
-        block = block.continued;
+        block = block.nextBlock;
     }
     return stmts;
 }
