@@ -16,16 +16,24 @@ export function temp(blockId: number, varId: number): TempVar {
 }
 
 export const enum LvalueType {
-    Temp,
-    Register,
     Global,
+    Scoped,
     Property,
 }
 
-// export interface LvalueRegister {
-//     kind: LvalueType.Register,
-//     id: number,
-// }
+export interface LvalueScoped {
+    kind: LvalueType.Scoped,
+    scopeId: number,
+    name: string,
+}
+
+export function lvalueScoped(scopeId: number, name: string): LvalueScoped {
+    return {
+        kind: LvalueType.Scoped,
+        scopeId,
+        name,
+    };
+}
 
 export interface LvalueGlobal {
     kind: LvalueType.Global,
@@ -53,7 +61,7 @@ export function lvalueProperty(object: IrTrivialExpr, property: IrTrivialExpr): 
     };
 }
 
-export type Lvalue = LvalueGlobal | LvalueProperty;
+export type Lvalue = LvalueGlobal | LvalueScoped | LvalueProperty;
 
 export function tempToString(temp: TempVar) {
     return `$${temp.blockId}:${temp.varId}`;
@@ -63,6 +71,7 @@ export function lvalueToString(lvalue: Lvalue) {
     switch (lvalue.kind) {
         // case LvalueType.Register: return `#${lvalue.registerId}`;
         case LvalueType.Global: return lvalue.name;
+        case LvalueType.Scoped: return `${lvalue.name}#${lvalue.scopeId}`
         case LvalueType.Property: return `${exprToString(lvalue.object)}[${exprToString(lvalue.property)}]`;
     }
 }

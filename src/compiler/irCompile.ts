@@ -4,6 +4,41 @@ import { markExprLive, markStmtLive } from './liveness';
 import { IrScope, ScopeType } from './scope';
 import * as t from '@babel/types';
 
+function resolveLval(scope: IrScope, lval: t.LVal): { name?: string, lvalue: ir.Lvalue, scope?: IrScope, value?: ir.IrTempExpr } {
+    switch (lval.type) {
+        case 'Identifier': {
+            const found = scope.findScopeWithBinding(lval.name);
+            if (found) {
+                const lvalue = ir.lvalueScoped(found.id, lval.name);
+                const binding = found.getBinding(lval.name);
+                return {
+                    name: lval.name,
+                    lvalue,
+                    scope: found,
+                    value: ir.exprTemp(binding.blockId, binding.varId),
+                };
+            } else {
+                return {
+                    lvalue: ir.lvalueGlobal(lval.name),
+                };
+            }
+        }
+        default: {
+            throw new Error("TODO");
+        }
+    }
+}
+
+function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
+    const found = resolveLval(scope, lval);
+    if (!found) {
+        throw new Error(`couldn't resolve lvalue: ${lval}`);
+    }
+    if (found.scope) {
+        found.scope.setBinding(found.name, temp);
+    }
+}
+
 /**
  * Break down an AST node, returning a IrTrivialExpr. If this requires
  * decomposing, additional assignments will be added to `block`.
@@ -23,10 +58,10 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
         case 'AssignmentExpression': {
             switch (ast.operator) {
                 case '=': {
-                    // FIXME: update binding
                     const decomposed = decompose(ast.right);
                     const id = block.nextTemp();
                     block.temp(block.id, id).expr(decomposed).finish();
+                    updateLvalue(ctx, ast.left as t.LVal, ir.temp(block.id, id));
                     return temp(id);
                 }
                 default: {
@@ -35,14 +70,8 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             }
         }
         case 'Identifier': {
-            const found = ctx.findScopeWithBinding(ast.name);
-            if (found) {
-                const binding = found.getBinding(ast);
-                if (binding !== undefined) {
-                    return ir.exprTemp(binding.blockId, binding.varId);
-                }
-            }
-            return ir.exprIdentifierGlobal(ast.name);
+            const found = resolveLval(ctx, ast);
+            return found.value || ir.exprIdentifier(found.lvalue);
         }
         case 'NumericLiteral':
         case 'BooleanLiteral':
@@ -68,14 +97,14 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 const decomposed = decompose(ast.argument);
                 const id = block.nextTemp();
                 block.temp(block.id, id).binop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)).finish();
-                // ctx.setBinding(decomposed.lvalue, temp(block.id, id));
+                updateLvalue(ctx, ast.argument as t.LVal, ir.temp(block.id, id));
                 return temp(id);
             } else {
                 // suffix: update the value and use that new identifier
                 const decomposed = decompose(ast.argument);
                 const id = block.nextTemp();
                 block.temp(block.id, id).binop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)).finish();
-                // ctx.setBinding(decomposed.lvalue, temp(block.id, id));
+                updateLvalue(ctx, ast.argument as t.LVal, ir.temp(block.id, id));
                 return decomposed;
             }
         }
@@ -241,7 +270,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                             block.temp(block.id, id).expr(decomposed).finish();
                         }
                         const scope = ast.kind === 'var' ? ctx.functionScope : ctx;
-                        scope.setBinding(decl.id, ir.temp(block.id, id));
+                        scope.setBinding(decl.id.name, ir.temp(block.id, id));
                         block.addDeclaration(scope.id, decl.id.name, id);
                         break;
                     }

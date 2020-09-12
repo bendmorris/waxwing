@@ -19,6 +19,7 @@ export class IrScope {
         this.program = program;
         this.scopeType = scopeType;
         this.parent = parent;
+        // if this is a block scope, the closest parent function scope is ours
         this.functionScope = this;
         while (this.functionScope && this.functionScope.scopeType !== ScopeType.FunctionScope) {
             this.functionScope = this.functionScope.parent;
@@ -34,22 +35,12 @@ export class IrScope {
         return new IrScope(this.program, ScopeType.BlockScope, this);
     }
 
-    getBinding(lval: t.LVal): ir.TempVar | undefined {
-        switch (lval.type) {
-            case 'Identifier': {
-                return this.bindings[lval.name];
-            }
-        }
-        return undefined;
+    getBinding(name: string): ir.TempVar | undefined {
+        return this.bindings[name];
     }
 
-    setBinding(lval: t.LVal, temp: ir.TempVar) {
-        switch (lval.type) {
-            case 'Identifier': {
-                this.bindings[lval.name] = temp;
-                break;
-            }
-        }
+    setBinding(name: string, temp: ir.TempVar) {
+        this.bindings[name] = temp;
     }
 
     findScopeWithBinding(name: string): IrScope | undefined {
