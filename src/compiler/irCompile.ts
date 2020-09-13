@@ -24,7 +24,7 @@ function resolveLval(scope: IrScope, lval: t.LVal): { name?: string, lvalue: ir.
             }
         }
         default: {
-            throw new Error('TODO: resolve non-Identifier lvalues');
+            throw new Error(`TODO: resolve non-Identifier lvalues: ${JSON.stringify(lval)}`);
         }
     }
 }
@@ -58,9 +58,21 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             switch (ast.operator) {
                 case '=': {
                     const decomposed = decompose(ast.right);
-                    const temp = block.addTemp(decomposed);
-                    updateLvalue(ctx, ast.left as t.LVal, temp);
-                    return ir.exprTemp(temp);
+                    if (t.isIdentifier(ast.left)) {
+                        const temp = block.addTemp(decomposed);
+                        updateLvalue(ctx, ast.left as t.LVal, temp);
+                        return ir.exprTemp(temp);
+                    } else if (t.isMemberExpression(ast.left) && (t.isIdentifier(ast.left.object))) {
+                        // this is a simple obj.prop = val set
+                        const target = decompose(ast.left.object);
+                        const prop = t.isIdentifier(ast.left.property) ? ir.exprLiteral(ast.left.property.name) : decompose(ast.left.property);
+                        block.set().object(target).propertyName(prop).expr(decomposed).finish();
+                        return decomposed;
+                        // TODO...
+                    } else {
+                        const temp = block.addTemp(decomposed);
+                        return ir.exprTemp(temp);
+                    }
                 }
                 default: {
                     throw new Error('TODO');
