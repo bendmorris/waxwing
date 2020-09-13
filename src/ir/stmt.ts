@@ -21,7 +21,6 @@ export interface IrBase {
     kind: IrStmtType,
 }
 
-
 /**
  * A statement containing an expression whose value is unused.
  */

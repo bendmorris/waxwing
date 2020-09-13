@@ -56,11 +56,24 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
                 return t.callExpression(recurse(expr.callee), expr.args.map(recurse));
             }
         }
-        case ir.IrExprType.EmptyArray: {
-            return t.arrayExpression([]);
-        }
-        case ir.IrExprType.EmptyObject: {
-            return t.objectExpression([]);
+        case ir.IrExprType.NewInstance: {
+            if (expr.isArray) {
+                return t.arrayExpression(expr.definition.map((x) => recurse(x.value)));
+            } else {
+                return t.objectExpression(expr.definition.map((x) => {
+                    let key = recurse(x.key),
+                        computed = true;
+                    switch (x.key.kind) {
+                        case ir.IrExprType.Literal: {
+                            if (typeof(x.key.value) === 'string' && isValidIdentifier(x.key.value)) {
+                                key = t.identifier(x.key.value);
+                                computed = false;
+                            }
+                        }
+                    }
+                    return t.objectProperty(key, recurse(x.value), computed);
+                }));
+            }
         }
         case ir.IrExprType.Function: {
             const def = expr.def;
@@ -70,9 +83,6 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
                 def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(block, ir.exprLiteral(arg.defaultValue)))),
                 t.blockStatement(bodyStmts)
             );
-        }
-        case ir.IrExprType.GlobalThis: {
-            return t.identifier('globalThis');
         }
         case ir.IrExprType.Identifier: {
             return lvalueToAst(block, expr.lvalue);

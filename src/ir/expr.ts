@@ -1,6 +1,7 @@
 import { Ast } from '../ast';
 import { Lvalue, lvalueToString, lvalueGlobal, TempVar, tempToString } from './lvalue';
 import { FunctionDefinition } from './function';
+import { InstanceMember } from './instance';
 
 export const enum IrExprType {
     // trivial
@@ -11,9 +12,6 @@ export const enum IrExprType {
     Phi,
     This,
     Arguments,
-    GlobalThis,
-    EmptyArray,
-    EmptyObject,
     Next,
     Function,
     // must be decomposed
@@ -21,6 +19,8 @@ export const enum IrExprType {
     Binop,
     Property,
     Call,
+    // must be assigned, not inlineable
+    NewInstance,
 }
 
 export function isTrivial(expr: IrExpr) {
@@ -32,9 +32,6 @@ export function isTrivial(expr: IrExpr) {
         case IrExprType.Phi:
         case IrExprType.This:
         case IrExprType.Arguments:
-        case IrExprType.GlobalThis:
-        case IrExprType.EmptyArray:
-        case IrExprType.EmptyObject:
         case IrExprType.Next:
         case IrExprType.Function: {
             return true;
@@ -123,31 +120,28 @@ export interface IrArgumentsExpr {
     kind: IrExprType.Arguments,
 }
 
-export interface IrGlobalThisExpr {
-    kind: IrExprType.GlobalThis,
-}
-
-export interface IrEmptyArrayExpr {
-    kind: IrExprType.EmptyArray,
+export interface IrNewInstanceExpr {
+    kind: IrExprType.NewInstance,
     instanceId: number,
+    isArray: boolean,
+    definition: InstanceMember[],
 }
 
-export function exprEmptyArray(instanceId: number): IrEmptyArrayExpr {
+export function exprEmptyArray(instanceId: number): IrNewInstanceExpr {
     return {
-        kind: IrExprType.EmptyArray,
+        kind: IrExprType.NewInstance,
         instanceId,
+        isArray: true,
+        definition: [],
     }
 }
 
-export interface IrEmptyObjectExpr {
-    kind: IrExprType.EmptyObject,
-    instanceId: number,
-}
-
-export function exprEmptyObject(instanceId: number): IrEmptyObjectExpr {
+export function exprEmptyObject(instanceId: number): IrNewInstanceExpr {
     return {
-        kind: IrExprType.EmptyObject,
+        kind: IrExprType.NewInstance,
         instanceId,
+        isArray: false,
+        definition: [],
     }
 }
 
@@ -177,9 +171,6 @@ export type IrTrivialExpr =
     IrPhiExpr |
     IrThisExpr |
     IrArgumentsExpr |
-    IrGlobalThisExpr |
-    IrEmptyArrayExpr |
-    IrEmptyObjectExpr |
     IrNextExpr |
     IrFunctionExpr
 ;
@@ -265,17 +256,21 @@ export function exprCall(callee: IrTrivialExpr, args: IrTrivialExpr[], isNew: bo
  * IrTrivialExprs. To create statements, these must be decomposed by assigning
  * to temps.
  */
-export type IrExpr = IrTrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr;
+export type IrExpr = IrTrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr | IrNewInstanceExpr;
 
 export function exprToString(expr: IrExpr) {
     switch (expr.kind) {
         case IrExprType.Arguments: return 'arguments';
         case IrExprType.Binop: return `${exprToString(expr.left)} ${expr.operator} ${exprToString(expr.right)}`;
         case IrExprType.Call: return `${exprToString(expr.callee)}(${expr.args.map(exprToString).join(', ')})`;
-        case IrExprType.EmptyArray: return '[]';
-        case IrExprType.EmptyObject: return '{}';
+        case IrExprType.NewInstance: {
+            if (expr.isArray) {
+                return `[${expr.definition.map((x) => exprToString(x.value)).join(', ')}]`
+            } else {
+                return `{${expr.definition.map((x) => `[${exprToString(x.key)}]: ${exprToString(x.value)}`).join(', ')}}`
+            }
+        }
         case IrExprType.Function: return `${expr.def.description()} { ... }` // FIXME
-        case IrExprType.GlobalThis: return 'globalThis';
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
         case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;

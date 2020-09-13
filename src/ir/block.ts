@@ -5,8 +5,7 @@ import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
 import { Effect } from './effect';
-import { ObjectGeneration } from './object';
-import { TempVar, temp } from './lvalue';
+import { IrInstanceMetadata, InstanceGeneration, InstanceMember } from './instance';
 
 class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
@@ -124,8 +123,9 @@ export class IrBlock {
     body: StmtWithMeta[];
     temps: Record<number, IrTempMetadata>;
     // map object instances to current generation
-    instances: Record<number, number[]>;
-    generations: Record<number, ObjectGeneration[]>;
+    instances: Record<number, IrInstanceMetadata>;
+    // map of { temp ID: instance ID }
+    instanceTemps: Record<number, number>;
     live: boolean;
     prevBlock?: IrBlock;
     nextBlock?: IrBlock;
@@ -143,7 +143,7 @@ export class IrBlock {
         this.body = [];
         this.temps = {};
         this.instances = {};
-        this.generations = {};
+        this.instanceTemps = {};
         this.varDeclarations = {};
         this.varAssignments = {};
         this.available = {};
@@ -190,19 +190,21 @@ export class IrBlock {
         return varId;
     }
 
-    nextInstance(): number {
+    addInstance(isArray: boolean, definition: InstanceMember[]): IrInstanceMetadata {
+        const tempId = this.nextTemp();
         const instanceId = this._nextInstance++;
-        this.instances[instanceId] = [0];
-        const gen = new ObjectGeneration();
-        this.generations[instanceId] = [gen];
-        return instanceId;
+        const constructor = isArray ? e.exprEmptyArray(instanceId) : e.exprEmptyObject(instanceId);
+        constructor.definition = definition;
+        this.temp(this.id, tempId).expr(constructor).finish();
+        return this.instances[instanceId] = new IrInstanceMetadata(this, isArray, instanceId, tempId, constructor);
     }
 
     nextGeneration(instanceId: number): number {
-        const generations = this.generations[instanceId];
-        const gen = this.generations[instanceId].length;
-        generations.push(new ObjectGeneration(this.instances[instanceId].map((i) => generations[i])));
-        this.instances[instanceId] = [gen];
+        const meta = this.instances[instanceId];
+        const generations = meta.generations;
+        const gen = meta.generations.length;
+        generations.push(new InstanceGeneration(meta.currentGenerations.map((i) => generations[i])));
+        meta.currentGenerations = [gen];
         return gen;
     }
 
@@ -227,6 +229,7 @@ export class IrBlock {
                 assignedTemp = stmt.varId;
                 this.temps[assignedTemp].origin = stmt;
                 this.temps[assignedTemp].definition = stmt.expr;
+                // FIXME: not all expressions should be considered available, like empty instances
                 this.available[e.exprToString(stmt.expr)] = stmt;
                 break;
             }
@@ -330,5 +333,40 @@ export class IrBlock {
 
     toString(): string {
         return this.body.map(s.stmtToString).join('\n') + '\n';
+    }
+
+    /**
+     * This block dominates block `other` if, to get to block `other`, all
+     * paths must come through this block first.
+     */
+    dominates(other: IrBlock): boolean {
+        let current: IrBlock | undefined = this;
+        while (current) {
+            if (other === current) {
+                return true;
+            }
+            const stmt = current.body[current.body.length - 1];
+            if (stmt) {
+                switch (stmt.kind) {
+                    case s.IrStmtType.If: {
+                        if (other === stmt.body) {
+                            return true;
+                        }
+                        if (other === stmt.elseBody) {
+                            return true;
+                        }
+                        break;
+                    }
+                    case s.IrStmtType.Loop: {
+                        if (other === stmt.body) {
+                            return true;
+                        }
+                        break;
+                    }
+                }
+            }
+            current = current.nextBlock;
+        }
+        return false;
     }
 }

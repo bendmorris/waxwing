@@ -44,7 +44,6 @@ function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
  * decomposing, additional assignments will be added to `block`.
  */
 function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialExpr {
-    // TODO: this should also return an lvalue if the expression is one
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }
@@ -128,33 +127,25 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             return ir.exprTemp(temp);
         }
         case 'ArrayExpression': {
-            const id = block.nextTemp();
-            const instanceId = block.nextInstance();
-            block.temp(block.id, id).expr(ir.exprEmptyArray(instanceId)).finish();
+            const members = [];
             for (const value of ast.elements) {
-                const val = decompose(value);
-                const stmt = block.set().object(temp(id)).expr(val).finish();
-                const newGeneration = block.nextGeneration(instanceId);
-                stmt.effects.push(ir.effectMutation(instanceId, newGeneration));
+                members.push({ key: undefined, value: decompose(value) });
             }
+            const instance = block.addInstance(true, members);
+            const id = instance.varId;
             return temp(id);
         }
         case 'ObjectExpression': {
-            const id = block.nextTemp();
-            const instanceId = block.nextInstance();
-            block.temp(block.id, id).expr(ir.exprEmptyObject(instanceId)).finish();
-            for (const value of ast.properties) {
-                switch (value.type) {
+            const members = [];
+            for (const member of ast.properties) {
+                switch (member.type) {
                     case 'ObjectMethod': {
                         // TODO
                         break;
                     }
                     case 'ObjectProperty': {
-                        const key = value.key.type == 'Identifier' ? ir.exprLiteral(value.key.name) : decompose(value.key);
-                        const val = decompose(value.value);
-                        const stmt = block.set().object(temp(id)).propertyName(key).expr(val).finish();
-                        const newGeneration = block.nextGeneration(instanceId);
-                        stmt.effects.push(ir.effectMutation(instanceId, newGeneration));
+                        const key = member.key.type == 'Identifier' ? ir.exprLiteral(member.key.name) : decompose(member.key);
+                        members.push({ key, value: decompose(member.value) });
                         break;
                     }
                     case 'SpreadElement': {
@@ -163,6 +154,8 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                     }
                 }
             }
+            const instance = block.addInstance(false, members);
+            const id = instance.varId;
             return temp(id);
         }
         case 'FunctionExpression': {
@@ -337,6 +330,8 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             break;
         }
         case 'FunctionDeclaration': {
+            // FIXME: make a temp for the function
+            // FIXME: initial pass to find function scoped variables and functions
             const def = new ir.FunctionDefinition(ctx.program);
             def.name = ast.id.name;
             const stmt = block.function(def);

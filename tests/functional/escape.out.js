@@ -1,3 +1,6 @@
 function f() {
-    globalFunc({x: 1, y: 2});
+    globalFunc({
+        x: 1,
+        y: 2
+    });
 }
