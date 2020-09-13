@@ -76,21 +76,6 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 // this is a simple obj.prop = val set
                 const target = decompose(ast.left.object);
                 const prop = t.isIdentifier(ast.left.property) ? ir.exprLiteral(ast.left.property.name) : decompose(ast.left.property);
-                // if (target.kind === ir.IrExprType.Temp) {
-                //     const block = program.getBlock(target.blockId);
-                //     const instance = block.instanceTemps[target.varId];
-                //     if (instance !== undefined) {
-                //         const meta = block.instances[instance];
-                //         if (meta.canRelocate) {
-                //             // if this instance can still relocate, we can safely add this set to the declaration
-                //             meta.constructorExpr.definition.push({
-                //                 key: prop,
-                //                 value: decomposed,
-                //             });
-                //             return decomposed;
-                //         }
-                //     }
-                // }
                 block.set().object(target).propertyName(prop).expr(decomposed).finish();
                 return decomposed;
             } else {

@@ -283,3 +283,7 @@ export function exprToString(expr: IrExpr) {
         case IrExprType.Unop: return expr.prefix ? `${expr.operator}${exprToString(expr.expr)}` : `${exprToString(expr.expr)}${expr.operator}`;
     }
 }
+
+export function canonicalizeExpr(expr: IrExpr) {
+    // TODO
+}

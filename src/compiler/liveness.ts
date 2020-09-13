@@ -19,5 +19,17 @@ export function markExprLive(block: ir.IrBlock, expr: ir.IrExpr) {
             }
             break;
         }
+        case ir.IrExprType.NewInstance: {
+            const instance = block.instances[expr.instanceId];
+            if (instance) {
+                const gens = instance.generations;
+                for (const gen of instance.generations) {
+                    if (!gen.stmt.live) {
+                        markStmtLive(gen.stmt);
+                    }
+                }
+            }
+            break;
+        }
     }
 }

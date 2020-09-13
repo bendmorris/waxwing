@@ -18,9 +18,9 @@ class StatementBuilder<T extends s.IrStmt> {
         this.stmt = stmt;
     }
 
-    finish(): s.StmtWithMeta {
+    finish(): T & s.IrStmtMetadata {
         this.block.push(this.stmt);
-        return this.stmt;
+        return this.stmt as T & s.IrStmtMetadata;
     }
 }
 
@@ -107,8 +107,6 @@ export class IrBlock {
     temps: Record<number, IrTempMetadata>;
     // map object instances to current generation
     instances: Record<number, IrInstanceMetadata>;
-    // map of { temp ID: instance ID }
-    instanceTemps: Record<number, number>;
     live: boolean;
     prevBlock?: IrBlock;
     nextBlock?: IrBlock;
@@ -126,7 +124,6 @@ export class IrBlock {
         this.body = [];
         this.temps = {};
         this.instances = {};
-        this.instanceTemps = {};
         this.varDeclarations = {};
         this.varAssignments = {};
         this.available = {};
@@ -164,8 +161,8 @@ export class IrBlock {
         const instanceId = this._nextInstance++;
         const constructor = isArray ? e.exprEmptyArray(instanceId) : e.exprEmptyObject(instanceId);
         constructor.definition = definition;
-        this.temp(this.id, tempId).expr(constructor).finish();
-        return this.instances[instanceId] = new IrInstanceMetadata(this, isArray, instanceId, tempId, constructor);
+        const stmt = this.temp(this.id, tempId).expr(constructor).finish();
+        return this.instances[instanceId] = new IrInstanceMetadata(this, isArray, instanceId, tempId, stmt as any);
     }
 
     containedBlock(container?: s.StmtWithMeta) {
@@ -189,11 +186,6 @@ export class IrBlock {
                 assignedTemp = stmt.varId;
                 this.temps[assignedTemp].origin = stmt;
                 this.temps[assignedTemp].definition = stmt.expr;
-                if (stmt.expr.kind === e.IrExprType.NewInstance) {
-                    this.instanceTemps[stmt.varId] = stmt.expr.instanceId;
-                } else {
-                    this.available[e.exprToString(stmt.expr)] = stmt;
-                }
 
                 switch (stmt.expr.kind) {
                     case e.IrExprType.Function: {
@@ -205,17 +197,6 @@ export class IrBlock {
                 break;
             }
         }
-        // u.applyToExprsInStmt((expr) => {
-        //     switch (expr.kind) {
-        //         case e.IrExprType.Temp: {
-        //             if (expr.varId !== assignedTemp) {
-        //                 this.program.getBlock(expr.blockId).addReference(expr.varId, stmt);
-        //             }
-        //             break;
-        //         }
-        //         default: {}
-        //     }
-        // }, stmt);
         this.body.push(stmt);
     }
 
@@ -229,11 +210,6 @@ export class IrBlock {
      * Otherwise, add a new one and return it.
      */
     addTemp(expr: e.IrExpr): s.IrTempStmt & Partial<s.IrStmtMetadata> {
-        // TODO: canonicalize expressions, e.g. operand sorting
-        const key = e.exprToString(expr);
-        if (this.available[key]) {
-            return this.available[key];
-        }
         const tempId = this.nextTemp();
         return this.temp(this.id, tempId).expr(expr).finish() as s.IrTempStmt;
     }

@@ -22,11 +22,13 @@ export class IrTempMetadata implements TempVar {
     origin?: StmtWithMeta;
     definition?: IrExpr;
     requiresRegister: boolean;
+    inlined: boolean;
 
     constructor(blockId: number, varId: number) {
         this.blockId = blockId;
         this.varId = varId;
         this.requiresRegister = true;
+        this.inlined = false;
     }
 }
 

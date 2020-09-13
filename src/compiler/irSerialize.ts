@@ -275,7 +275,8 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                         stmts.push(t.variableDeclaration("var", [
                             t.variableDeclarator(t.identifier(registerName(register)), exprToAst(ctx, block, stmt.expr))
                         ]));
-                    } else if (stmt.effects.length) {
+                    } else if (stmt.effects.length && !meta.inlined) {
+                        // we need to preserve this effectful function call, but we don't need its value
                         stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
                     }
                     break;

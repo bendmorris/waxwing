@@ -10,7 +10,7 @@ Waxwing does things like:
 * Constant propagation: replace code with its statically known value
 * Partial evaluation: simplify expressions as much as possible at compile time
 
-While Waxwing can produce compact output with `-c`, it is not a minifier and does not specifically optimize for code size. You should run Waxwing first, and then minify the resulting output.
+While Waxwing can produce compact output with `-c`, it is not a minifier and does not specifically optimize for code size (although its heuristics do consider code size.) You should run Waxwing first, and then minify the resulting output with something like [Terser](https://github.com/terser/terser).
 
 ## Setup
 

@@ -1,20 +1,22 @@
 import { IrBlock } from './block';
-import { IrTrivialExpr } from './expr';
-import { IrNewInstanceExpr } from './expr';
+import { IrTrivialExpr, IrNewInstanceExpr } from './expr';
+import { StmtWithMeta, IrTempStmt, IrStmtMetadata } from './stmt';
 
 export class InstanceGeneration {
     parent?: InstanceGeneration;
+    stmt: StmtWithMeta;
     knownProperties: any;
     hasUnknownProperties: boolean;
 
-    constructor(parent?: InstanceGeneration) {
+    constructor(stmt: StmtWithMeta, parent?: InstanceGeneration) {
         this.parent = parent;
+        this.stmt = stmt;
         this.knownProperties = {};
         this.hasUnknownProperties = false;
     }
 
-    child() {
-        return new InstanceGeneration(this);
+    child(stmt: StmtWithMeta) {
+        return new InstanceGeneration(stmt, this);
     }
 }
 
@@ -23,34 +25,38 @@ export type InstanceMember = {
     value: IrTrivialExpr,
 }
 
+type InstanceTempStmt = IrTempStmt & { expr: IrNewInstanceExpr } & IrStmtMetadata;
+
 export class IrInstanceMetadata {
     block: IrBlock;
     id: number;
     varId: number;
     generations: InstanceGeneration[];
+    constructorStmt: InstanceTempStmt;
     constructorExpr: IrNewInstanceExpr;
     currentGenerations: number[];
     isArray: boolean;
     canRelocate: boolean;
     canInline: boolean;
 
-    constructor(block: IrBlock, isArray: boolean, id: number, varId: number, constructorExpr: IrNewInstanceExpr) {
+    constructor(block: IrBlock, isArray: boolean, id: number, varId: number, constructor: InstanceTempStmt) {
         this.block = block;
         this.id = id;
         this.varId = varId;
-        this.generations = [new InstanceGeneration()];
-        this.constructorExpr = constructorExpr;
+        this.generations = [new InstanceGeneration(constructor)];
+        this.constructorStmt = constructor;
+        this.constructorExpr = constructor.expr;
         this.currentGenerations = [0];
         this.isArray = isArray;
         this.canRelocate = true;
         this.canInline = false;
     }
 
-    addNewGenerations(): InstanceGeneration[] {
+    addNewGenerations(stmt: StmtWithMeta): InstanceGeneration[] {
         const newGenerations = [];
         for (let i = 0; i < this.currentGenerations.length; ++i) {
             const cur = this.currentGenerations[i];
-            const newGen = this.generations[cur].child();
+            const newGen = this.generations[cur].child(stmt);
             this.currentGenerations[i] = this.generations.length;
             this.generations.push(newGen);
             newGenerations.push(newGen);
