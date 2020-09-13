@@ -1,5 +1,5 @@
 import * as ir from '../../ir';
-import { simplifyExpr } from './simplify';
+import { simplifyExpr } from './utils';
 
 // TODO: replace `simplfyExpr` use with constraint solver
 export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {

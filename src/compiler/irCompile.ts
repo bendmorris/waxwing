@@ -76,21 +76,21 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 // this is a simple obj.prop = val set
                 const target = decompose(ast.left.object);
                 const prop = t.isIdentifier(ast.left.property) ? ir.exprLiteral(ast.left.property.name) : decompose(ast.left.property);
-                if (target.kind === ir.IrExprType.Temp) {
-                    const block = program.getBlock(target.blockId);
-                    const instance = block.instanceTemps[target.varId];
-                    if (instance !== undefined) {
-                        const meta = block.instances[instance];
-                        if (meta.canRelocate) {
-                            // if this instance can still relocate, we can safely add this set to the declaration
-                            meta.constructorExpr.definition.push({
-                                key: prop,
-                                value: decomposed,
-                            });
-                            return decomposed;
-                        }
-                    }
-                }
+                // if (target.kind === ir.IrExprType.Temp) {
+                //     const block = program.getBlock(target.blockId);
+                //     const instance = block.instanceTemps[target.varId];
+                //     if (instance !== undefined) {
+                //         const meta = block.instances[instance];
+                //         if (meta.canRelocate) {
+                //             // if this instance can still relocate, we can safely add this set to the declaration
+                //             meta.constructorExpr.definition.push({
+                //                 key: prop,
+                //                 value: decomposed,
+                //             });
+                //             return decomposed;
+                //         }
+                //     }
+                // }
                 block.set().object(target).propertyName(prop).expr(decomposed).finish();
                 return decomposed;
             } else {
@@ -367,6 +367,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             def.name = ast.id.name;
             const stmt = block.function(def);
             compileStmt(ctx.childFunction(), def.body, ast.body);
+            program.functions.push(def.body);
             if (!ctx.functionScope.parent) {
                 // keep top level function declarations
                 markStmtLive(stmt);
@@ -393,6 +394,7 @@ export function irCompile(body: Ast[]): ir.IrProgram {
     const program = new ir.IrProgram();
     const ctx = new IrScope(program, ScopeType.FunctionScope);
     const block = program.block();
+    program.functions.push(block);
     // TODO: we need an initial pass to find `var` and function declarations...
     // the initial pass should attach persistent scopes to the AST statements,
     // which also need to be attached to the blocks themselves

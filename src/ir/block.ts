@@ -136,13 +136,6 @@ export class IrBlock {
 
     getTempMetadata(varId: number) { return this.temps[varId]; }
 
-    addReference(varId: number, stmt: s.IrStmt) {
-        const meta = this.getTempMetadata(varId);
-        if (meta) {
-            meta.references.push(stmt);
-        }
-    }
-
     addDeclaration(scopeId: number, name: string, tempId: number) {
         if (!this.varDeclarations[scopeId]) {
             this.varDeclarations[scopeId] = {};
@@ -162,14 +155,7 @@ export class IrBlock {
 
     nextTemp(): number {
         const varId = this._nextTemp++;
-        const meta = {
-            varId,
-            references: [],
-            origin: undefined,
-            definition: undefined,
-            inlined: false,
-        };
-        this.temps[varId] = meta;
+        this.temps[varId] = new IrTempMetadata(this.id, varId);
         return varId;
     }
 
@@ -208,20 +194,28 @@ export class IrBlock {
                 } else {
                     this.available[e.exprToString(stmt.expr)] = stmt;
                 }
+
+                switch (stmt.expr.kind) {
+                    case e.IrExprType.Function: {
+                        this.program.functions.push(stmt.expr.def.body);
+                        break;
+                    }
+                }
+
                 break;
             }
         }
-        u.applyToExprsInStmt((expr) => {
-            switch (expr.kind) {
-                case e.IrExprType.Temp: {
-                    if (expr.varId !== assignedTemp) {
-                        this.program.getBlock(expr.blockId).addReference(expr.varId, stmt);
-                    }
-                    break;
-                }
-                default: {}
-            }
-        }, stmt);
+        // u.applyToExprsInStmt((expr) => {
+        //     switch (expr.kind) {
+        //         case e.IrExprType.Temp: {
+        //             if (expr.varId !== assignedTemp) {
+        //                 this.program.getBlock(expr.blockId).addReference(expr.varId, stmt);
+        //             }
+        //             break;
+        //         }
+        //         default: {}
+        //     }
+        // }, stmt);
         this.body.push(stmt);
     }
 

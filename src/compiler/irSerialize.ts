@@ -3,6 +3,26 @@ import * as ir from '../ir';
 import * as babel from '@babel/core';
 import * as t from '@babel/types';
 
+class SerializeContext {
+    registers: Record<number, Record<number, number>>;
+    nextRegister: number;
+
+    constructor() {
+        this.registers = {};
+        this.nextRegister = 0;
+    }
+
+    registerFor(blockId: number, varId: number): number {
+        if (!this.registers[blockId]) {
+            this.registers[blockId] = {};
+        }
+        if (this.registers[blockId][varId] === undefined) {
+            this.registers[blockId][varId] = this.nextRegister++;
+        }
+        return this.registers[blockId][varId];
+    }
+}
+
 function isValidIdentifier(x) {
     // TODO
     return true;
@@ -23,9 +43,9 @@ function registerName(registerId: number): string {
     return `$_r${registerId}`;
 }
 
-function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
+function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
     function recurse(expr: ir.IrExpr) {
-        return exprToAst(block, expr);
+        return exprToAst(ctx, block, expr);
     }
     switch (expr.kind) {
         case ir.IrExprType.Temp: {
@@ -33,10 +53,10 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
             if (!meta || !meta.definition) {
                 throw new Error(`Unrecognized temp variable: ${ir.tempToString(expr)}`);
             }
-            if (meta.register !== undefined) {
-                return t.identifier(registerName(meta.register));
+            if (meta.requiresRegister) {
+                return t.identifier(registerName(ctx.registerFor(expr.blockId, expr.varId)));
             }
-            return exprToAst(block, meta.definition);
+            return exprToAst(ctx, block, meta.definition);
         }
         case ir.IrExprType.Arguments: {
             return t.identifier('arguments');
@@ -84,10 +104,10 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
         }
         case ir.IrExprType.Function: {
             const def = expr.def;
-            const bodyStmts = blockToAst(def.body);
+            const bodyStmts = blockToAst(ctx, def.body);
             return t.functionExpression(
                 def.name ? t.identifier(def.name) : undefined,
-                def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(block, ir.exprLiteral(arg.defaultValue)))),
+                def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(ctx, block, ir.exprLiteral(arg.defaultValue)))),
                 t.blockStatement(bodyStmts)
             );
         }
@@ -127,7 +147,7 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
     }
 }
 
-function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
+function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
     const program = block.program;
     if (!stmts) {
         stmts = [];
@@ -154,17 +174,17 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                 }
                 case ir.IrStmtType.ExprStmt: {
                     if (stmt.effects.length) {
-                        stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
+                        stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
                     }
                     break;
                 }
                 case ir.IrStmtType.FunctionDeclaration: {
-                    const bodyStmts = blockToAst(stmt.def.body);
+                    const bodyStmts = blockToAst(ctx, stmt.def.body);
                     // FIXME...
                     if (stmt.def.name) {
                         stmts.push(t.functionDeclaration(
                             t.identifier(stmt.def.name),
-                            stmt.def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(block, ir.exprLiteral(arg.defaultValue)))),
+                            stmt.def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(ctx, block, ir.exprLiteral(arg.defaultValue)))),
                             t.blockStatement(bodyStmts)
                         ));
                     }
@@ -172,16 +192,16 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                 }
                 case ir.IrStmtType.If: {
                     if (stmt.knownBranch === true) {
-                        blockToAst(stmt.body, stmts);
+                        blockToAst(ctx, stmt.body, stmts);
                     } else if (stmt.knownBranch === false) {
                         if (stmt.elseBody) {
-                            blockToAst(stmt.elseBody, stmts);
+                            blockToAst(ctx, stmt.elseBody, stmts);
                         }
                     } else {
                         stmts.push(t.ifStatement(
-                            exprToAst(block, stmt.condition),
-                            t.blockStatement(blockToAst(stmt.body)),
-                            stmt.elseBody ? t.blockStatement(blockToAst(stmt.elseBody)) : undefined
+                            exprToAst(ctx, block, stmt.condition),
+                            t.blockStatement(blockToAst(ctx, stmt.body)),
+                            stmt.elseBody ? t.blockStatement(blockToAst(ctx, stmt.elseBody)) : undefined
                         ));
                     }
                     break;
@@ -195,8 +215,8 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                                 // noop
                             } else {
                                 stmts.push(t.whileStatement(
-                                    exprToAst(block, stmt.expr),
-                                    t.blockStatement(blockToAst(stmt.body))
+                                    exprToAst(ctx, block, stmt.expr),
+                                    t.blockStatement(blockToAst(ctx, stmt.body))
                                 ));
                             }
                             break;
@@ -205,11 +225,11 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                             if (stmt.knownBranch === false) {
                                 // we know this loop will execute exactly once
                                 // FIXME: this will still include `break` and `continue`
-                                blockToAst(stmt.body, stmts);
+                                blockToAst(ctx, stmt.body, stmts);
                             } else {
                                 stmts.push(t.doWhileStatement(
-                                    exprToAst(block, stmt.expr),
-                                    t.blockStatement(blockToAst(stmt.body))
+                                    exprToAst(ctx, block, stmt.expr),
+                                    t.blockStatement(blockToAst(ctx, stmt.body))
                                 ));
                             }
                             break;
@@ -226,23 +246,23 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                     break;
                 }
                 case ir.IrStmtType.Return: {
-                    stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(block, stmt.expr)));
+                    stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(ctx, block, stmt.expr)));
                     break;
                 }
                 case ir.IrStmtType.Set: {
                     let lhs;
                     if (stmt.property) {
                         if (stmt.property.kind === ir.IrExprType.Literal && typeof stmt.property.value === 'string' && isValidIdentifier(stmt.property.value)) {
-                            lhs = t.memberExpression(exprToAst(block, stmt.object), t.identifier(stmt.property.value), false);
+                            lhs = t.memberExpression(exprToAst(ctx, block, stmt.object), t.identifier(stmt.property.value), false);
                         } else {
-                            lhs = t.memberExpression(exprToAst(block, stmt.object), exprToAst(block, stmt.property), false);
+                            lhs = t.memberExpression(exprToAst(ctx, block, stmt.object), exprToAst(ctx, block, stmt.property), false);
                         }
-                        stmts.push(t.expressionStatement(t.assignmentExpression('=', lhs, exprToAst(block, stmt.expr))));
+                        stmts.push(t.expressionStatement(t.assignmentExpression('=', lhs, exprToAst(ctx, block, stmt.expr))));
                     } else {
                         stmts.push(t.expressionStatement(
                             t.callExpression(
-                                t.memberExpression(exprToAst(block, stmt.object), t.identifier('push')),
-                                [exprToAst(block, stmt.expr)]
+                                t.memberExpression(exprToAst(ctx, block, stmt.object), t.identifier('push')),
+                                [exprToAst(ctx, block, stmt.expr)]
                             )
                         ));
                     }
@@ -250,19 +270,13 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                 }
                 case ir.IrStmtType.Temp: {
                     const meta = program.getBlock(stmt.blockId).getTempMetadata(stmt.varId);
-                    const liveReferences = meta.references.filter((x) => x.live);
-                    console.log([stmt.blockId, stmt.varId]);
-                    console.log(liveReferences);
-                    // we don't need assignments for temp values...
-                    if (!liveReferences.length && stmt.effects.length) {
-                        // ...but we need to preserve effects
-                        stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
-                    } else if (liveReferences.length > 1) {
-                        // referenced more than once; use a register
-                        meta.register = program._nextRegister++;
+                    if (meta.requiresRegister) {
+                        const register = ctx.registerFor(stmt.blockId, stmt.varId);
                         stmts.push(t.variableDeclaration("var", [
-                            t.variableDeclarator(t.identifier(registerName(meta.register)), exprToAst(block, stmt.expr))
+                            t.variableDeclarator(t.identifier(registerName(register)), exprToAst(ctx, block, stmt.expr))
                         ]));
+                    } else if (stmt.effects.length) {
+                        stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
                     }
                     break;
                 }
@@ -277,7 +291,8 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
  * Convert a block of WWIR into a string of JS source.
  */
 export function irSerialize(program: ir.IrProgram, options: Options): string {
-    const node = t.program(blockToAst(program.blocks[0]));
+    const ctx = new SerializeContext();
+    const node = t.program(blockToAst(ctx, program.blocks[0]));
     const { code } = babel.transformFromAstSync(node, undefined, { compact: options.compact });
     return code + '\n';
 }

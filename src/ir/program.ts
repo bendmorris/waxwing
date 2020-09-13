@@ -2,10 +2,12 @@ import { IrBlock } from './block';
 
 export class IrProgram {
     blocks: IrBlock[];
+    functions: IrBlock[];
     _nextRegister: number;
 
     constructor() {
         this.blocks = [];
+        this.functions = [];
         this._nextRegister = 0;
     }
 

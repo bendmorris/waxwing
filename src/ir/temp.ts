@@ -16,13 +16,18 @@ export function temp(blockId: number, varId: number): TempVar {
     };
 }
 
-export interface IrTempMetadata {
-    varId: number,
-    origin: StmtWithMeta,
-    references: StmtWithMeta[],
-    definition?: IrExpr,
-    inlined: boolean,
-    register?: number,
+export class IrTempMetadata implements TempVar {
+    blockId: number;
+    varId: number;
+    origin?: StmtWithMeta;
+    definition?: IrExpr;
+    requiresRegister: boolean;
+
+    constructor(blockId: number, varId: number) {
+        this.blockId = blockId;
+        this.varId = varId;
+        this.requiresRegister = true;
+    }
 }
 
 export function tempToString(temp: TempVar) {
