@@ -1,20 +1,5 @@
 import { IrTrivialExpr, exprToString } from './expr';
 
-export interface TempVar {
-    blockId: number,
-    varId: number,
-};
-
-export function temp(blockId: number, varId: number): TempVar {
-    if (varId === undefined) {
-        throw new TypeError(`undefined variable in block ${blockId}`);
-    }
-    return {
-        blockId,
-        varId,
-    };
-}
-
 export const enum LvalueType {
     Global,
     Scoped,
@@ -62,10 +47,6 @@ export function lvalueProperty(object: IrTrivialExpr, property: IrTrivialExpr): 
 }
 
 export type Lvalue = LvalueGlobal | LvalueScoped | LvalueProperty;
-
-export function tempToString(temp: TempVar) {
-    return `$${temp.blockId}:${temp.varId}`;
-}
 
 export function lvalueToString(lvalue: Lvalue) {
     switch (lvalue.kind) {

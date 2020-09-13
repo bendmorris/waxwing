@@ -3,14 +3,18 @@ import { IrTrivialExpr } from './expr';
 import { IrNewInstanceExpr } from './expr';
 
 export class InstanceGeneration {
-    parents?: InstanceGeneration[];
+    parent?: InstanceGeneration;
+    knownProperties: any;
+    hasUnknownProperties: boolean;
 
-    constructor(parents?: InstanceGeneration[]) {
-        this.parents = parents;
+    constructor(parent?: InstanceGeneration) {
+        this.parent = parent;
+        this.knownProperties = {};
+        this.hasUnknownProperties = false;
     }
 
     child() {
-        return new InstanceGeneration([this]);
+        return new InstanceGeneration(this);
     }
 }
 
@@ -40,5 +44,21 @@ export class IrInstanceMetadata {
         this.isArray = isArray;
         this.canRelocate = true;
         this.canInline = false;
+    }
+
+    addNewGenerations(): InstanceGeneration[] {
+        const newGenerations = [];
+        for (let i = 0; i < this.currentGenerations.length; ++i) {
+            const cur = this.currentGenerations[i];
+            const newGen = this.generations[cur].child();
+            this.currentGenerations[i] = this.generations.length;
+            this.generations.push(newGen);
+            newGenerations.push(newGen);
+        }
+        return newGenerations;
+    }
+
+    getCurrentGenerations(): InstanceGeneration[] {
+        return this.currentGenerations.map((i) => this.generations[i]);
     }
 }

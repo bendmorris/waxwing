@@ -67,6 +67,12 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialE
             }
             break;
         }
+        case ir.IrExprType.Property: {
+            if (expr.expr.kind === ir.IrExprType.Temp) {
+                // see if we know this property value
+            }
+            break;
+        }
         default: {
             if (ir.isTrivial(expr)) {
                 return expr as ir.IrTrivialExpr;

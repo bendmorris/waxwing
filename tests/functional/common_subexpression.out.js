@@ -1,4 +1,4 @@
 function f() {
-    var $0 = a.b;
-    return $0.f1() + $0.f2() + $0.f3() + $0.f4();
+    var $_r0 = a.b;
+    return $_r0.f1() + $_r0.f2() + $_r0.f3() + $_r0.f4();
 }

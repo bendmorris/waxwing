@@ -1,7 +1,9 @@
-import { TempVar, Lvalue, lvalueToString, tempToString } from './lvalue';
-import { IrExpr, IrTrivialExpr, exprToString } from './expr';
+import { Lvalue, lvalueToString } from './lvalue';
 import { IrBlock } from './block';
+import { Effect } from './effect';
+import { IrExpr, IrTrivialExpr, exprToString } from './expr';
 import { FunctionDefinition } from './function';
+import { TempVar, tempToString } from './temp';
 // import { Constraint } from './constraint';
 
 export const enum IrStmtType {
@@ -125,6 +127,15 @@ export type IrStmt =
     IrBreakStmt |
     IrFunctionDeclarationStmt
 ;
+
+export interface IrStmtMetadata {
+    block: IrBlock,
+    live: boolean,
+    knownBranch?: boolean,
+    effects: Effect[],
+}
+
+export type StmtWithMeta = IrStmt & Partial<IrStmtMetadata>;
 
 export function stmtToString(stmt: IrStmt): string {
     switch (stmt.kind) {

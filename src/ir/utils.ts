@@ -71,6 +71,11 @@ export function applyToExprsInStmt(f: IrExprCallback, stmt: IrStmt) {
                 applyToExprsInExpr(f, stmt.property);
             }
             applyToExprsInExpr(f, stmt.expr);
+            break;
+        }
+        case IrStmtType.Temp: {
+            applyToExprsInExpr(f, stmt.expr);
+            break;
         }
     }
 }

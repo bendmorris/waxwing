@@ -2,9 +2,11 @@ import { IrBlock } from './block';
 
 export class IrProgram {
     blocks: IrBlock[];
+    _nextRegister: number;
 
     constructor() {
         this.blocks = [];
+        this._nextRegister = 0;
     }
 
     block(): IrBlock {

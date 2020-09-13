@@ -16,4 +16,5 @@ export * from './lvalue';
 export * from './instance';
 export * from './program';
 export * from './stmt';
+export * from './temp';
 export * from './utils';

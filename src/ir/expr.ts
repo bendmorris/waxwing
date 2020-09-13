@@ -1,7 +1,8 @@
 import { Ast } from '../ast';
-import { Lvalue, lvalueToString, lvalueGlobal, TempVar, tempToString } from './lvalue';
 import { FunctionDefinition } from './function';
 import { InstanceMember } from './instance';
+import { Lvalue, lvalueToString, lvalueGlobal } from './lvalue';
+import { TempVar, tempToString } from './temp';
 
 export const enum IrExprType {
     // trivial

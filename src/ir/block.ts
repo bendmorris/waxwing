@@ -4,8 +4,8 @@ import * as u from './utils';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
-import { Effect } from './effect';
-import { IrInstanceMetadata, InstanceGeneration, InstanceMember } from './instance';
+import { IrInstanceMetadata, InstanceMember } from './instance';
+import { IrTempMetadata } from './temp';
 
 class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
@@ -13,12 +13,12 @@ class StatementBuilder<T extends s.IrStmt> {
     stmt: T;
 
     constructor(block: IrBlock, stmt: T) {
-        this.block = (stmt as StmtWithMeta).block = block;
+        this.block = (stmt as s.StmtWithMeta).block = block;
         this.program = block.program;
         this.stmt = stmt;
     }
 
-    finish(): StmtWithMeta {
+    finish(): s.StmtWithMeta {
         this.block.push(this.stmt);
         return this.stmt;
     }
@@ -99,28 +99,11 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
     }
 }
 
-export interface IrStmtMetadata {
-    block: IrBlock,
-    live: boolean,
-    knownBranch?: boolean,
-    effects: Effect[],
-}
-
-export type StmtWithMeta = s.IrStmt & Partial<IrStmtMetadata>;
-
-export interface IrTempMetadata {
-    varId: number,
-    origin: StmtWithMeta,
-    references: StmtWithMeta[],
-    definition?: e.IrExpr,
-    inlined: boolean,
-}
-
 export class IrBlock {
     id: number;
     program: IrProgram;
-    container?: StmtWithMeta;
-    body: StmtWithMeta[];
+    container?: s.StmtWithMeta;
+    body: s.StmtWithMeta[];
     temps: Record<number, IrTempMetadata>;
     // map object instances to current generation
     instances: Record<number, IrInstanceMetadata>;
@@ -175,7 +158,7 @@ export class IrBlock {
         this.varAssignments[scopeId][name] = tempId;
     }
     
-    lastStmt(): StmtWithMeta | undefined { return this.body[this.body.length - 1]; }
+    lastStmt(): s.StmtWithMeta | undefined { return this.body[this.body.length - 1]; }
 
     nextTemp(): number {
         const varId = this._nextTemp++;
@@ -199,22 +182,13 @@ export class IrBlock {
         return this.instances[instanceId] = new IrInstanceMetadata(this, isArray, instanceId, tempId, constructor);
     }
 
-    nextGeneration(instanceId: number): number {
-        const meta = this.instances[instanceId];
-        const generations = meta.generations;
-        const gen = meta.generations.length;
-        generations.push(new InstanceGeneration(meta.currentGenerations.map((i) => generations[i])));
-        meta.currentGenerations = [gen];
-        return gen;
-    }
-
-    containedBlock(container?: StmtWithMeta) {
+    containedBlock(container?: s.StmtWithMeta) {
         const block = this.program.block();
         block.container = container;
         return block;
     }
 
-    push(stmt: StmtWithMeta) {
+    push(stmt: s.StmtWithMeta) {
         stmt.block = this;
         Object.assign(stmt, {
             live: false,
@@ -229,8 +203,11 @@ export class IrBlock {
                 assignedTemp = stmt.varId;
                 this.temps[assignedTemp].origin = stmt;
                 this.temps[assignedTemp].definition = stmt.expr;
-                // FIXME: not all expressions should be considered available, like empty instances
-                this.available[e.exprToString(stmt.expr)] = stmt;
+                if (stmt.expr.kind === e.IrExprType.NewInstance) {
+                    this.instanceTemps[stmt.varId] = stmt.expr.instanceId;
+                } else {
+                    this.available[e.exprToString(stmt.expr)] = stmt;
+                }
                 break;
             }
         }
@@ -257,7 +234,7 @@ export class IrBlock {
      * If this expression is already available, return the existing temp var.
      * Otherwise, add a new one and return it.
      */
-    addTemp(expr: e.IrExpr): s.IrTempStmt & Partial<IrStmtMetadata> {
+    addTemp(expr: e.IrExpr): s.IrTempStmt & Partial<s.IrStmtMetadata> {
         // TODO: canonicalize expressions, e.g. operand sorting
         const key = e.exprToString(expr);
         if (this.available[key]) {
@@ -308,25 +285,25 @@ export class IrBlock {
     }
 
     break() {
-        const stmt: StmtWithMeta = { kind: s.IrStmtType.Break, };
+        const stmt: s.StmtWithMeta = { kind: s.IrStmtType.Break, };
         this.push(stmt);
         return stmt;
     }
 
     continue() {
-        const stmt: StmtWithMeta = { kind: s.IrStmtType.Continue, };
+        const stmt: s.StmtWithMeta = { kind: s.IrStmtType.Continue, };
         this.push(stmt);
         return stmt;
     }
 
     return(expr?: e.IrTrivialExpr) {
-        const stmt: StmtWithMeta = { kind: s.IrStmtType.Return, expr, };
+        const stmt: s.StmtWithMeta = { kind: s.IrStmtType.Return, expr, };
         this.push(stmt);
         return stmt;
     }
 
     function(def: FunctionDefinition) {
-        const stmt: StmtWithMeta = { kind: s.IrStmtType.FunctionDeclaration, def};
+        const stmt: s.StmtWithMeta = { kind: s.IrStmtType.FunctionDeclaration, def};
         this.push(stmt)
         return stmt;
     }

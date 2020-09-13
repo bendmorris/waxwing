@@ -19,6 +19,10 @@ function lvalueToAst(block: ir.IrBlock, lvalue: ir.Lvalue): t.Expression {
     }
 }
 
+function registerName(registerId: number): string {
+    return `$_r${registerId}`;
+}
+
 function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
     function recurse(expr: ir.IrExpr) {
         return exprToAst(block, expr);
@@ -28,6 +32,9 @@ function exprToAst(block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
             const meta = block.program.getBlock(expr.blockId).getTempMetadata(expr.varId);
             if (!meta || !meta.definition) {
                 throw new Error(`Unrecognized temp variable: ${ir.tempToString(expr)}`);
+            }
+            if (meta.register !== undefined) {
+                return t.identifier(registerName(meta.register));
             }
             return exprToAst(block, meta.definition);
         }
@@ -242,10 +249,20 @@ function blockToAst(block: ir.IrBlock, stmts?: t.Statement[]): t.Statement[] {
                     break;
                 }
                 case ir.IrStmtType.Temp: {
+                    const meta = program.getBlock(stmt.blockId).getTempMetadata(stmt.varId);
+                    const liveReferences = meta.references.filter((x) => x.live);
+                    console.log([stmt.blockId, stmt.varId]);
+                    console.log(liveReferences);
                     // we don't need assignments for temp values...
-                    if (stmt.effects.length) {
+                    if (!liveReferences.length && stmt.effects.length) {
                         // ...but we need to preserve effects
                         stmts.push(t.expressionStatement(exprToAst(block, stmt.expr)));
+                    } else if (liveReferences.length > 1) {
+                        // referenced more than once; use a register
+                        meta.register = program._nextRegister++;
+                        stmts.push(t.variableDeclaration("var", [
+                            t.variableDeclarator(t.identifier(registerName(meta.register)), exprToAst(block, stmt.expr))
+                        ]));
                     }
                     break;
                 }
