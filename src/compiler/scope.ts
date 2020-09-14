@@ -1,5 +1,4 @@
 import * as ir from '../ir';
-import * as t from '@babel/types';
 
 export const enum ScopeType {
     FunctionScope,

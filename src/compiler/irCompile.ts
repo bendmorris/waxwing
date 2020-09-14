@@ -44,7 +44,6 @@ function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
  * decomposing, additional assignments will be added to `block`.
  */
 function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialExpr {
-    const program = block.program;
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }

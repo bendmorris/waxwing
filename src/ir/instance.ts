@@ -5,7 +5,7 @@ import { StmtWithMeta, IrTempStmt, IrStmtMetadata } from './stmt';
 export class InstanceGeneration {
     parent?: InstanceGeneration;
     stmt: StmtWithMeta;
-    knownProperties: any;
+    knownProperties: object;
     hasUnknownProperties: boolean;
 
     constructor(stmt: StmtWithMeta, parent?: InstanceGeneration) {

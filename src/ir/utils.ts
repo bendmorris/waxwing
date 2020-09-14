@@ -1,4 +1,4 @@
-import { IrExprType, IrExpr, IrTrivialExpr, exprIdentifier } from './expr';
+import { IrExprType, IrExpr } from './expr';
 import { IrBlock } from './block';
 import { IrStmtType, IrStmt } from './stmt';
 

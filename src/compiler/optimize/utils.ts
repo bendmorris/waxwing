@@ -1,5 +1,4 @@
 import * as ir from '../../ir';
-import { StmtWithMeta } from '../../ir';
 
 const staticBinops = {
     '*': (a, b) => a * b,

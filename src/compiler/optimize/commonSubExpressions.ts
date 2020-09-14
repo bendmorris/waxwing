@@ -1,5 +1,4 @@
 import * as ir from '../../ir';
-import { canonicalizeExpr } from '../../ir';
 import * as u from './utils';
 
 type AvailableMap = Record<string, ir.IrTempStmt>;
@@ -31,7 +30,6 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
     u.applyToNextBlocks((b) => optimizeBlock(b, {...available}), block);
 }
 
-// TODO: replace `simplfyExpr` use with constraint solver
 export function optimizeFunction(firstBlock: ir.IrBlock) {
     optimizeBlock(firstBlock);
 }

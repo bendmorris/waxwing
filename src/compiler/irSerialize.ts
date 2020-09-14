@@ -25,6 +25,7 @@ class SerializeContext {
 
 function isValidIdentifier(x) {
     // TODO
+    x;
     return true;
 }
 

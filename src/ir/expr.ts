@@ -286,4 +286,5 @@ export function exprToString(expr: IrExpr) {
 
 export function canonicalizeExpr(expr: IrExpr) {
     // TODO
+    expr;
 }

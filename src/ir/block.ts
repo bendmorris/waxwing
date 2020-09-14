@@ -1,6 +1,5 @@
 import * as s from './stmt';
 import * as e from './expr';
-import * as u from './utils';
 import { Ast } from '../ast';
 import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
