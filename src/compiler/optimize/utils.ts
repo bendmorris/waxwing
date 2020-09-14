@@ -145,7 +145,6 @@ export function findReferences(block: ir.IrBlock, refs?: ReferenceMap): Referenc
                     refs.addReference(expr.blockId, expr.varId, stmt);
                     break;
                 }
-                default: {}
             }
         }, stmt);
     }

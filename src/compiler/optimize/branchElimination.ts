@@ -47,6 +47,5 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
                 }
             }
         }
-        default: {}
     }
 }

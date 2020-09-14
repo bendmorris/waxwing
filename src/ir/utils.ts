@@ -24,7 +24,6 @@ export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
                 applyToStmtsInBlock(f, stmt.body);
                 break;
             }
-            default: {}
         }
     }
 }

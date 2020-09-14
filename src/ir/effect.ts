@@ -1,5 +1,3 @@
-import { Lvalue } from './lvalue';
-
 export const enum EffectType {
     Io,
     Mutation,

@@ -4,7 +4,7 @@ import { IrExpr } from './expr';
 export interface TempVar {
     blockId: number,
     varId: number,
-};
+}
 
 export function temp(blockId: number, varId: number): TempVar {
     if (varId === undefined) {
