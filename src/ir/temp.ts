@@ -1,4 +1,4 @@
-import { StmtWithMeta } from './stmt';
+import { IrStmt } from './stmt';
 import { IrExpr } from './expr';
 
 export interface TempVar {
@@ -19,7 +19,7 @@ export function temp(blockId: number, varId: number): TempVar {
 export class IrTempMetadata implements TempVar {
     blockId: number;
     varId: number;
-    origin?: StmtWithMeta;
+    origin?: IrStmt;
     definition?: IrExpr;
     requiresRegister: boolean;
     inlined: boolean;

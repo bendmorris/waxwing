@@ -1,6 +1,6 @@
 import * as ir from '../ir';
 
-export function markStmtLive(stmt: ir.StmtWithMeta) {
+export function markStmtLive(stmt: ir.IrStmt) {
     stmt.live = true;
     ir.applyToExprsInStmt((x) => markExprLive(stmt.block, x), stmt);
     if (stmt.block.container) {

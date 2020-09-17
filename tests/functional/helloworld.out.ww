@@ -1,6 +1,6 @@
 0:
-function helloWorld() goto 1
-$0:0 = helloWorld()
+$0:0 = function helloWorld() goto 1
+$0:1 = helloWorld()
 
 1:
 $1:0 = console["log"]

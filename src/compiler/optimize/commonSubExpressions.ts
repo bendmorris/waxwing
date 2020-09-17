@@ -14,8 +14,9 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
                 if (stmt.expr.kind === ir.IrExprType.NewInstance) {
                     break;
                 }
-                ir.canonicalizeExpr(stmt.expr);
-                const key = ir.exprToString(stmt.expr);
+                const expr = u.simplifyExpr(block, stmt.expr);
+                ir.canonicalizeExpr(expr);
+                const key = ir.exprToString(expr);
                 const found = available[key];
                 if (found) {
                     const meta = block.getTempMetadata(stmt.varId);

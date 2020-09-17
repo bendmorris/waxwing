@@ -9,10 +9,6 @@ export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
     for (const stmt of block.body) {
         f(stmt);
         switch (stmt.kind) {
-            case IrStmtType.FunctionDeclaration: {
-                applyToStmtsInBlock(f, stmt.def.body);
-                break;
-            }
             case IrStmtType.If: {
                 applyToStmtsInBlock(f, stmt.body);
                 if (stmt.elseBody) {
@@ -36,10 +32,6 @@ export function applyToExprsInBlock(f: IrExprCallback, block: IrBlock) {
 
 export function applyToExprsInStmt(f: IrExprCallback, stmt: IrStmt) {
     switch (stmt.kind) {
-        case IrStmtType.FunctionDeclaration: {
-            applyToExprsInBlock(f, stmt.def.body);
-            break;
-        }
         case IrStmtType.If: {
             f(stmt.condition);
             applyToExprsInBlock(f, stmt.body);

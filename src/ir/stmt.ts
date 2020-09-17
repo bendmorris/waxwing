@@ -13,10 +13,16 @@ export const enum IrStmtType {
     Loop,
     Continue,
     Break,
-    FunctionDeclaration,
 }
 
-export interface IrBase {
+export interface IrStmtMetadata {
+    block: IrBlock,
+    live: boolean,
+    knownBranch?: boolean,
+    effects: Effect[],
+}
+
+export interface IrBase extends Partial<IrStmtMetadata> {
     kind: IrStmtType,
 }
 
@@ -80,32 +86,14 @@ export interface IrReturnStmt extends IrBase {
     expr?: IrTrivialExpr,
 }
 
-/**
- * Function declaration.
- */
-export interface IrFunctionDeclarationStmt extends IrBase {
-    kind: IrStmtType.FunctionDeclaration,
-    def: FunctionDefinition,
-}
-
-export type IrStmt =
+export type IrStmt = (
     IrTempStmt |
     IrReturnStmt |
     IrIfStmt |
     IrLoopStmt |
     IrContinueStmt |
-    IrBreakStmt |
-    IrFunctionDeclarationStmt
-;
-
-export interface IrStmtMetadata {
-    block: IrBlock,
-    live: boolean,
-    knownBranch?: boolean,
-    effects: Effect[],
-}
-
-export type StmtWithMeta = IrStmt & Partial<IrStmtMetadata>;
+    IrBreakStmt
+);
 
 export function stmtToString(stmt: IrStmt): string {
     switch (stmt.kind) {
@@ -124,9 +112,6 @@ export function stmtToString(stmt: IrStmt): string {
         }
         case IrStmtType.Continue: return `continue`;
         case IrStmtType.Break: return `break`;
-        case IrStmtType.FunctionDeclaration: {
-            return `${stmt.def.description()}`;
-        }
     }
 }
 

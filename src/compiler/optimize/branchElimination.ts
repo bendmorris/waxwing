@@ -2,7 +2,7 @@ import * as ir from '../../ir';
 import { simplifyExpr } from './utils';
 
 // TODO: replace `simplfyExpr` use with constraint solver
-export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
+export function optimizeStmt(block: ir.IrBlock, stmt: ir.IrStmt) {
     switch (stmt.kind) {
         case ir.IrStmtType.If: {
             const simpleTest = simplifyExpr(block, stmt.condition);

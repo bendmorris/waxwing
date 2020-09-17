@@ -5,7 +5,7 @@ import * as ir from '../../ir';
 import { exprProperty } from '../../ir';
 import * as u from './utils';
 
-type InstanceAssignment = ir.IrTempStmt & ir.IrStmtMetadata & { expr: ir.IrNewInstanceExpr };
+type InstanceAssignment = ir.IrTempStmt & { expr: ir.IrNewInstanceExpr };
 
 export class InstanceMap {
     refs: Record<number, Record<number, InstanceAssignment>>;

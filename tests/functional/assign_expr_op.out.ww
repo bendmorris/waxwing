@@ -1,5 +1,5 @@
 0:
-function f() goto 1
+$0:0 = function f() goto 1
 
 1:
 $1:0 = 1

@@ -32,10 +32,31 @@ const staticUnops = {
     'void': () => undefined,
 }
 
+export function simplifyTrivialExpr(block: ir.IrBlock, expr: ir.IrTrivialExpr): ir.IrTrivialExpr {
+    switch (expr.kind) {
+        case ir.IrExprType.Temp: {
+            const definingBlock = block.program.getBlock(expr.blockId);
+            const meta = definingBlock.getTempMetadata(expr.varId);
+            if (meta && meta.definition) {
+                const simplified = simplifyExpr(definingBlock, meta.definition);
+                meta.definition = simplified;
+                return ir.isTrivial(simplified) ? (simplified as ir.IrTrivialExpr) : expr;
+            }
+            return expr;
+        }
+        default: {
+            if (ir.isTrivial(expr)) {
+                return expr as ir.IrTrivialExpr;
+            }
+        }
+    }
+    return expr;
+}
+
 /**
  * Statically evaluate the given expression as far as possible.
  */
-export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialExpr | undefined) {
+export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): ir.IrExpr {
     switch (expr.kind) {
         case ir.IrExprType.Temp: {
             const definingBlock = block.program.getBlock(expr.blockId);
@@ -46,8 +67,8 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialE
             return expr;
         }
         case ir.IrExprType.Binop: {
-            const lhs = simplifyExpr(block, expr.left),
-                rhs = simplifyExpr(block, expr.right);
+            const lhs = simplifyTrivialExpr(block, expr.left),
+                rhs = simplifyTrivialExpr(block, expr.right);
             if (lhs && rhs &&
                 lhs.kind === ir.IrExprType.Literal &&
                 rhs.kind === ir.IrExprType.Literal &&
@@ -55,17 +76,16 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialE
             ) {
                 return ir.exprLiteral(staticBinops[expr.operator](lhs.value, rhs.value));
             }
-            break;
+            return ir.exprBinop(expr.operator, lhs, rhs);
         }
         case ir.IrExprType.Unop: {
-            const operand = simplifyExpr(block, expr.expr);
-            if (operand &&
-                operand.kind === ir.IrExprType.Literal &&
+            const operand = simplifyTrivialExpr(block, expr.expr);
+            if (operand.kind === ir.IrExprType.Literal &&
                 staticUnops[expr.operator]
             ) {
                 return ir.exprLiteral(staticUnops[expr.operator](operand.value));
             }
-            break;
+            return ir.exprUnop(expr.operator, expr.prefix, operand);
         }
         case ir.IrExprType.Property: {
             if (expr.expr.kind === ir.IrExprType.Temp) {
@@ -75,21 +95,21 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): (ir.IrTrivialE
         }
         default: {
             if (ir.isTrivial(expr)) {
-                return expr as ir.IrTrivialExpr;
+                return simplifyTrivialExpr(block, expr as ir.IrTrivialExpr);
             }
         }
     }
-    return undefined;
+    return expr;
 }
 
 export class ReferenceMap {
-    refs: Record<number, Record<number, ir.StmtWithMeta[]>>;
+    refs: Record<number, Record<number, ir.IrStmt[]>>;
 
     constructor() {
         this.refs = {};
     }
 
-    addReference(blockId: number, varId: number, stmt: ir.StmtWithMeta) {
+    addReference(blockId: number, varId: number, stmt: ir.IrStmt) {
         if (!this.refs[blockId]) {
             this.refs[blockId] = {};
         }
@@ -99,7 +119,7 @@ export class ReferenceMap {
         this.refs[blockId][varId].push(stmt);
     }
 
-    getReferences(blockId: number, varId: number): ir.StmtWithMeta[] {
+    getReferences(blockId: number, varId: number): ir.IrStmt[] {
         if (this.refs[blockId]) {
             return this.refs[blockId][varId] || [];
         }

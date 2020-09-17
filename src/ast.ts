@@ -13,3 +13,25 @@ export function parseFile(path: string): Ast[] {
 export function parse(code: string, options: babelParser.ParserOptions): Ast[] {
     return babelParser.parse(code, options).program.body;
 }
+
+export interface SourcePos {
+    line: number,
+    column: number,
+}
+
+export interface Span {
+    start: SourcePos,
+    end: SourcePos,
+}
+
+export interface SourceSpan extends Span {
+    file: string,
+}
+
+export function fileSpan(file: string, startLine: number, startColumn: number, endLine: number, endColumn: number): SourceSpan {
+    return {
+        file,
+        start: { line: startLine, column: startColumn },
+        end: { line: endLine, column: endColumn },
+    };
+}

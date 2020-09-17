@@ -345,14 +345,15 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
         case 'FunctionDeclaration': {
             // FIXME: make a temp for the function
             // FIXME: initial pass to find function scoped variables and functions
+
             const def = new ir.FunctionDefinition(ctx.program);
             def.name = ast.id.name;
-            const stmt = block.function(def);
             compileStmt(ctx.childFunction(), def.body, ast.body);
             program.functions.push(def.body);
+            const temp = block.addTemp(ir.exprFunction(def));
             if (!ctx.functionScope.parent) {
                 // keep top level function declarations
-                markStmtLive(stmt);
+                markStmtLive(temp);
             }
             break;
         }

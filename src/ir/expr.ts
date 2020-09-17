@@ -1,4 +1,4 @@
-import { Ast } from '../ast';
+import { Ast, SourceSpan } from '../ast';
 import { FunctionDefinition } from './function';
 import { InstanceMember } from './instance';
 import { Lvalue, lvalueToString, lvalueGlobal } from './lvalue';
@@ -26,6 +26,12 @@ export const enum IrExprType {
     NewInstance,
 }
 
+export interface IrExprMetadata {
+    loc: SourceSpan,
+}
+
+interface IrExprBase extends Partial<IrExprMetadata> {}
+
 export function isTrivial(expr: IrExpr) {
     switch (expr.kind) {
         case IrExprType.Raw:
@@ -43,7 +49,7 @@ export function isTrivial(expr: IrExpr) {
     return false;
 }
 
-export interface IrRawExpr {
+export interface IrRawExpr extends IrExprBase {
     kind: IrExprType.Raw,
     ast: Ast,
 }
@@ -55,7 +61,7 @@ export function exprRaw(ast: Ast): IrRawExpr {
     };
 }
 
-export interface IrLiteralExpr {
+export interface IrLiteralExpr extends IrExprBase {
     kind: IrExprType.Literal,
     value: any,
 }
@@ -67,7 +73,7 @@ export function exprLiteral(value: any): IrLiteralExpr {
     };
 }
 
-export interface IrTempExpr extends TempVar {
+export interface IrTempExpr extends IrExprBase, TempVar {
     kind: IrExprType.Temp,
 }
 
@@ -87,7 +93,7 @@ export function exprTemp2(blockId: number, varId: number): IrTempExpr {
     };
 }
 
-export interface IrIdentifierExpr {
+export interface IrIdentifierExpr extends IrExprBase {
     kind: IrExprType.Identifier,
     lvalue: Lvalue,
 }
@@ -103,7 +109,7 @@ export function exprIdentifierGlobal(name: string): IrIdentifierExpr {
     return exprIdentifier(lvalueGlobal(name));
 }
 
-export interface IrPhiExpr {
+export interface IrPhiExpr extends IrExprBase {
     kind: IrExprType.Phi,
     temps: TempVar[],
 }
@@ -115,15 +121,15 @@ export function exprPhi(temps: TempVar[]): IrPhiExpr {
     };
 }
 
-export interface IrThisExpr {
+export interface IrThisExpr extends IrExprBase {
     kind: IrExprType.This,
 }
 
-export interface IrArgumentsExpr {
+export interface IrArgumentsExpr extends IrExprBase {
     kind: IrExprType.Arguments,
 }
 
-export interface IrNewInstanceExpr {
+export interface IrNewInstanceExpr extends IrExprBase {
     kind: IrExprType.NewInstance,
     instanceId: number,
     isArray: boolean,
@@ -148,13 +154,13 @@ export function exprEmptyObject(instanceId: number): IrNewInstanceExpr {
     }
 }
 
-export interface IrNextExpr {
+export interface IrNextExpr extends IrExprBase {
     kind: IrExprType.Next,
     nextIn: boolean,
     value: IrTrivialExpr,
 }
 
-export interface IrFunctionExpr {
+export interface IrFunctionExpr extends IrExprBase {
     kind: IrExprType.Function,
     def: FunctionDefinition,
 }
@@ -178,7 +184,7 @@ export type IrTrivialExpr =
     IrFunctionExpr
 ;
 
-export interface IrAssignExpr {
+export interface IrAssignExpr extends IrExprBase {
     kind: IrExprType.Assign,
     operator?: BinaryOperator,
     left: IrTrivialExpr,
@@ -194,7 +200,7 @@ export function exprAssign(operator: BinaryOperator | undefined, left: IrTrivial
     };
 }
 
-export interface IrSetExpr {
+export interface IrSetExpr extends IrExprBase {
     kind: IrExprType.Set,
     expr: IrTrivialExpr,
     property?: IrTrivialExpr,
@@ -212,7 +218,7 @@ export function exprSet(expr: IrTrivialExpr, property: IrTrivialExpr | undefined
 
 export type UnaryOperator = '+' | '-' | '!' | '~' | 'delete' | 'void' | 'typeof' | 'throw';
 
-export interface IrUnopExpr {
+export interface IrUnopExpr extends IrExprBase {
     kind: IrExprType.Unop,
     operator: UnaryOperator,
     prefix: boolean,
@@ -240,7 +246,7 @@ export type BinaryOperator =
     '??'
 ;
 
-export interface IrBinopExpr {
+export interface IrBinopExpr extends IrExprBase {
     kind: IrExprType.Binop,
     operator: BinaryOperator,
     left: IrTrivialExpr,
@@ -256,7 +262,7 @@ export function exprBinop(operator: BinaryOperator, left: IrTrivialExpr, right: 
     }
 }
 
-export interface IrPropertyExpr {
+export interface IrPropertyExpr extends IrExprBase {
     kind: IrExprType.Property,
     expr: IrTrivialExpr,
     property: IrTrivialExpr,
@@ -270,7 +276,7 @@ export function exprProperty(expr: IrTrivialExpr, property: IrTrivialExpr): IrPr
     }
 }
 
-export interface IrCallExpr {
+export interface IrCallExpr extends IrExprBase {
     kind: IrExprType.Call,
     callee: IrTrivialExpr,
     args: IrTrivialExpr[],
@@ -291,7 +297,9 @@ export function exprCall(callee: IrTrivialExpr, args: IrTrivialExpr[], isNew: bo
  * IrTrivialExprs. To create statements, these must be decomposed by assigning
  * to temps.
  */
-export type IrExpr = IrTrivialExpr | IrAssignExpr | IrSetExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr | IrNewInstanceExpr;
+export type IrExpr = (
+    IrTrivialExpr | IrAssignExpr | IrSetExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr | IrNewInstanceExpr
+);
 
 export function exprToString(expr: IrExpr) {
     switch (expr.kind) {
@@ -306,7 +314,7 @@ export function exprToString(expr: IrExpr) {
                 return `{${expr.definition.map((x) => `[${exprToString(x.key)}]: ${exprToString(x.value)}`).join(', ')}}`
             }
         }
-        case IrExprType.Function: return `${expr.def.description()} { ... }` // FIXME
+        case IrExprType.Function: return `${expr.def.description()}`
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
         case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;

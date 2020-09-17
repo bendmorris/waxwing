@@ -23,7 +23,7 @@ const baseOptimizations: Optimization[] = [
 interface OptimizationMethods {
     optimizeProgram: (program: ir.IrProgram) => void,
     optimizeBlock: (block: ir.IrBlock) => void,
-    optimizeStmt: (block: ir.IrBlock, stmt: ir.StmtWithMeta) => void,
+    optimizeStmt: (block: ir.IrBlock, stmt: ir.IrStmt) => void,
     optimizeFunction: (firstBlock: ir.IrBlock) => void,
 }
 

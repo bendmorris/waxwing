@@ -10,8 +10,9 @@ function optimizeBlock(block: ir.IrBlock, refs: u.ReferenceMap) {
             meta.requiresRegister = false;
             meta.inlined = !!references.length;
         } else {
-            const def = meta.definition;
-            if (def) {
+            const originalDef = meta.definition;
+            if (originalDef) {
+                const def = u.simplifyExpr(block, originalDef) || originalDef;
                 switch (def.kind) {
                     case ir.IrExprType.Literal: {
                         if (typeof(def.value) === 'string' || typeof(def.value) === 'number') {

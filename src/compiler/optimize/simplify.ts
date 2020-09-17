@@ -1,30 +1,21 @@
 import * as ir from '../../ir';
-import { simplifyExpr } from './utils';
+import { simplifyExpr, simplifyTrivialExpr } from './utils';
 
-export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
+export function optimizeStmt(block: ir.IrBlock, stmt: ir.IrStmt) {
     switch (stmt.kind) {
         case ir.IrStmtType.Loop:
         case ir.IrStmtType.Return: {
-            const simplified = simplifyExpr(block, stmt.expr);
-            if (simplified) {
-                // TODO: create a replace utility
-                stmt.expr = simplified;
-            }
+            // TODO: create a replace utility
+            stmt.expr = simplifyTrivialExpr(block, stmt.expr);
             break;
         }
         case ir.IrStmtType.If: {
-            const simplified = simplifyExpr(block, stmt.condition);
-            if (simplified) {
-                stmt.condition = simplified;
-            }
+            stmt.condition = simplifyTrivialExpr(block, stmt.condition);
             break;
         }
         case ir.IrStmtType.Temp: {
-            const simplified = simplifyExpr(block, stmt.expr);
-            if (simplified) {
-                const meta = block.getTempMetadata(stmt.varId);
-                meta.definition = stmt.expr = simplified;
-            }
+            const meta = block.getTempMetadata(stmt.varId);
+            meta.definition = stmt.expr = simplifyExpr(block, stmt.expr);
             break;
         }
     }

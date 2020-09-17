@@ -63,7 +63,7 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
             return t.identifier('arguments');
         }
         case ir.IrExprType.Assign: {
-            throw new Error("TODO");
+            return t.assignmentExpression((expr.operator || '') + '=', recurse(expr.left) as t.LVal, recurse(expr.right));
         }
         case ir.IrExprType.Binop: {
             switch (expr.operator) {
@@ -187,18 +187,6 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                     stmts.push(t.continueStatement());
                     break;
                 }
-                case ir.IrStmtType.FunctionDeclaration: {
-                    const bodyStmts = blockToAst(ctx, stmt.def.body);
-                    // FIXME...
-                    if (stmt.def.name) {
-                        stmts.push(t.functionDeclaration(
-                            t.identifier(stmt.def.name),
-                            stmt.def.args.map((arg) => arg.defaultValue === undefined ? t.identifier(arg.name) : t.assignmentPattern(t.identifier(arg.name), exprToAst(ctx, block, ir.exprLiteral(arg.defaultValue)))),
-                            t.blockStatement(bodyStmts)
-                        ));
-                    }
-                    break;
-                }
                 case ir.IrStmtType.If: {
                     if (stmt.knownBranch === true) {
                         blockToAst(ctx, stmt.body, stmts);
@@ -260,16 +248,35 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                 }
                 case ir.IrStmtType.Temp: {
                     const meta = program.getBlock(stmt.blockId).getTempMetadata(stmt.varId);
-                    if (meta.requiresRegister) {
-                        const register = ctx.registerFor(stmt.blockId, stmt.varId);
-                        stmts.push(t.variableDeclaration("var", [
-                            t.variableDeclarator(t.identifier(registerName(register)), exprToAst(ctx, block, stmt.expr))
-                        ]));
-                    } else if (stmt.effects.length && !meta.inlined) {
-                        // we need to preserve this effectful function call, but we don't need its value
-                        stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
+                    switch (stmt.expr.kind) {
+                        case ir.IrExprType.Function: {
+                            const def = stmt.expr.def;
+                            let name = def.name;;
+                            if (!name) {
+                                const register = ctx.registerFor(stmt.blockId, stmt.varId)
+                                name = registerName(register);
+                            }
+                            const bodyStmts = blockToAst(ctx, def.body);
+                            stmts.push(t.functionDeclaration(
+                                t.identifier(name),
+                                def.args.map((arg) => t.identifier(arg.name)),
+                                t.blockStatement(bodyStmts)
+                            ));
+                            break;
+                        }
+                        default: {
+                            if (meta.requiresRegister) {
+                                const register = ctx.registerFor(stmt.blockId, stmt.varId);
+                                stmts.push(t.variableDeclaration("var", [
+                                    t.variableDeclarator(t.identifier(registerName(register)), exprToAst(ctx, block, stmt.expr))
+                                ]));
+                            } else if (stmt.effects.length && !meta.inlined) {
+                                // we need to preserve this effectful function call, but we don't need its value
+                                stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
+                            }
+                            break;
+                        }
                     }
-                    break;
                 }
             }
         }

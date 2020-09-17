@@ -1,21 +1,21 @@
 import { IrBlock } from './block';
 import { IrTrivialExpr, IrNewInstanceExpr } from './expr';
-import { StmtWithMeta, IrTempStmt, IrStmtMetadata } from './stmt';
+import { IrStmt, IrTempStmt, IrStmtMetadata } from './stmt';
 
 export class InstanceGeneration {
     parent?: InstanceGeneration;
-    stmt: StmtWithMeta;
+    stmt: IrStmt;
     knownProperties: object;
     hasUnknownProperties: boolean;
 
-    constructor(stmt: StmtWithMeta, parent?: InstanceGeneration) {
+    constructor(stmt: IrStmt, parent?: InstanceGeneration) {
         this.parent = parent;
         this.stmt = stmt;
         this.knownProperties = {};
         this.hasUnknownProperties = false;
     }
 
-    child(stmt: StmtWithMeta) {
+    child(stmt: IrStmt) {
         return new InstanceGeneration(stmt, this);
     }
 }
@@ -52,7 +52,7 @@ export class IrInstanceMetadata {
         this.canInline = false;
     }
 
-    addNewGenerations(stmt: StmtWithMeta): InstanceGeneration[] {
+    addNewGenerations(stmt: IrStmt): InstanceGeneration[] {
         const newGenerations = [];
         for (let i = 0; i < this.currentGenerations.length; ++i) {
             const cur = this.currentGenerations[i];
