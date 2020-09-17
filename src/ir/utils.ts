@@ -36,11 +36,6 @@ export function applyToExprsInBlock(f: IrExprCallback, block: IrBlock) {
 
 export function applyToExprsInStmt(f: IrExprCallback, stmt: IrStmt) {
     switch (stmt.kind) {
-        case IrStmtType.Assignment:
-        case IrStmtType.ExprStmt: {
-            applyToExprsInExpr(f, stmt.expr);
-            break;
-        }
         case IrStmtType.FunctionDeclaration: {
             applyToExprsInBlock(f, stmt.def.body);
             break;
@@ -64,14 +59,6 @@ export function applyToExprsInStmt(f: IrExprCallback, stmt: IrStmt) {
             }
             break;
         }
-        case IrStmtType.Set: {
-            applyToExprsInExpr(f, stmt.object);
-            if (stmt.property) {
-                applyToExprsInExpr(f, stmt.property);
-            }
-            applyToExprsInExpr(f, stmt.expr);
-            break;
-        }
         case IrStmtType.Temp: {
             applyToExprsInExpr(f, stmt.expr);
             break;
@@ -88,6 +75,11 @@ export function applyToExprsInExpr(f: IrExprCallback, expr: IrExpr) {
             break;
         }
         // compound
+        case IrExprType.Assign: {
+            f(expr.left);
+            f(expr.right);
+            break;
+        }
         case IrExprType.Binop: {
             f(expr.left);
             f(expr.right);
@@ -101,6 +93,12 @@ export function applyToExprsInExpr(f: IrExprCallback, expr: IrExpr) {
         case IrExprType.Property: {
             f(expr.expr);
             f(expr.property);
+            break;
+        }
+        case IrExprType.Set: {
+            f(expr.expr);
+            f(expr.property);
+            f(expr.value);
             break;
         }
         case IrExprType.Unop: {

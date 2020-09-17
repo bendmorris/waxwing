@@ -71,15 +71,13 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 const temp = block.addTemp(decomposed);
                 updateLvalue(ctx, ast.left as t.LVal, temp);
                 return ir.exprTemp(temp);
-            } else if (t.isMemberExpression(ast.left) && (t.isIdentifier(ast.left.object))) {
-                // this is a simple obj.prop = val set
+            } else if (t.isMemberExpression(ast.left)) {
                 const target = decompose(ast.left.object);
                 const prop = t.isIdentifier(ast.left.property) ? ir.exprLiteral(ast.left.property.name) : decompose(ast.left.property);
-                block.set().object(target).propertyName(prop).expr(decomposed).finish();
+                block.addTemp(ir.exprSet(target, prop, decomposed));
                 return decomposed;
             } else {
-                const temp = block.addTemp(decomposed);
-                return ir.exprTemp(temp);
+                throw new Error("TODO");
             }
         }
         case 'Identifier': {

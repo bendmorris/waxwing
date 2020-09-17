@@ -2,6 +2,7 @@
 
 
 import * as ir from '../../ir';
+import { exprProperty } from '../../ir';
 import * as u from './utils';
 
 type InstanceAssignment = ir.IrTempStmt & ir.IrStmtMetadata & { expr: ir.IrNewInstanceExpr };
@@ -42,26 +43,30 @@ function optimizeBlock(block: ir.IrBlock, instances: InstanceMap) {
         const stmt = block.body[i];
         switch (stmt.kind) {
             case ir.IrStmtType.Temp: {
-                if (stmt.expr.kind === ir.IrExprType.NewInstance) {
-                    instances[stmt.expr.instanceId] = stmt as InstanceAssignment;
-                }
-                break;
-            }
-            case ir.IrStmtType.Set: {
-                const target = stmt.object;
-                if (target.kind === ir.IrExprType.Temp) {
-                    const block = program.getBlock(target.blockId);
-                    const instance = instances.getInstance(target.blockId, target.varId);
-                    if (instance !== undefined) {
-                        const meta = block.instances[instance.expr.instanceId];
-                        if (meta.canRelocate) {
-                            // if this instance can still relocate, we can safely add this set to the declaration
-                            meta.constructorExpr.definition.push({
-                                key: stmt.property,
-                                value: stmt.expr,
-                            });
-                            block.body.splice(i--, 1);
+                const expr = stmt.expr;
+                switch (expr.kind) {
+                    case ir.IrExprType.NewInstance: {
+                        instances[expr.instanceId] = stmt as InstanceAssignment;
+                        break;
+                    }
+                    case ir.IrExprType.Set: {
+                        const target = expr.expr;
+                        if (target.kind === ir.IrExprType.Temp) {
+                            const block = program.getBlock(target.blockId);
+                            const instance = instances.getInstance(target.blockId, target.varId);
+                            if (instance !== undefined) {
+                                const meta = block.instances[instance.expr.instanceId];
+                                if (meta.canRelocate) {
+                                    // if this instance can still relocate, we can safely add this set to the declaration
+                                    meta.constructorExpr.definition.push({
+                                        key: expr.property,
+                                        value: expr.value,
+                                    });
+                                    block.body.splice(i--, 1);
+                                }
+                            }
                         }
+                        break;
                     }
                 }
                 break;

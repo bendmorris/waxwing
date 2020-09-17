@@ -62,6 +62,9 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
         case ir.IrExprType.Arguments: {
             return t.identifier('arguments');
         }
+        case ir.IrExprType.Assign: {
+            throw new Error("TODO");
+        }
         case ir.IrExprType.Binop: {
             switch (expr.operator) {
                 case '&&':
@@ -139,6 +142,23 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
         case ir.IrExprType.Raw: {
             return expr.ast as t.Expression;
         }
+        case ir.IrExprType.Set: {
+            let lhs;
+            if (expr.property) {
+                if (expr.property.kind === ir.IrExprType.Literal && typeof expr.property.value === 'string' && isValidIdentifier(expr.property.value)) {
+                    lhs = t.memberExpression(exprToAst(ctx, block, expr.expr), t.identifier(expr.property.value), false);
+                } else {
+                    lhs = t.memberExpression(exprToAst(ctx, block, expr.expr), exprToAst(ctx, block, expr.property), false);
+                }
+                return t.assignmentExpression('=', lhs, exprToAst(ctx, block, expr.value));
+            } else {
+                t.callExpression(
+                    t.memberExpression(exprToAst(ctx, block, expr.expr), t.identifier('push')),
+                    [exprToAst(ctx, block, expr.value)]
+                );
+            }
+            break;
+        }
         case ir.IrExprType.This: {
             return t.thisExpression();
         }
@@ -159,24 +179,12 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                 continue;
             }
             switch (stmt.kind) {
-                case ir.IrStmtType.Assignment: {
-                    switch (stmt.lvalue.kind) {
-                        default: throw new Error('TODO');
-                    }
-                    break;
-                }
                 case ir.IrStmtType.Break: {
                     stmts.push(t.breakStatement());
                     break;
                 }
                 case ir.IrStmtType.Continue: {
                     stmts.push(t.continueStatement());
-                    break;
-                }
-                case ir.IrStmtType.ExprStmt: {
-                    if (stmt.effects.length) {
-                        stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
-                    }
                     break;
                 }
                 case ir.IrStmtType.FunctionDeclaration: {
@@ -248,25 +256,6 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                 }
                 case ir.IrStmtType.Return: {
                     stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(ctx, block, stmt.expr)));
-                    break;
-                }
-                case ir.IrStmtType.Set: {
-                    let lhs;
-                    if (stmt.property) {
-                        if (stmt.property.kind === ir.IrExprType.Literal && typeof stmt.property.value === 'string' && isValidIdentifier(stmt.property.value)) {
-                            lhs = t.memberExpression(exprToAst(ctx, block, stmt.object), t.identifier(stmt.property.value), false);
-                        } else {
-                            lhs = t.memberExpression(exprToAst(ctx, block, stmt.object), exprToAst(ctx, block, stmt.property), false);
-                        }
-                        stmts.push(t.expressionStatement(t.assignmentExpression('=', lhs, exprToAst(ctx, block, stmt.expr))));
-                    } else {
-                        stmts.push(t.expressionStatement(
-                            t.callExpression(
-                                t.memberExpression(exprToAst(ctx, block, stmt.object), t.identifier('push')),
-                                [exprToAst(ctx, block, stmt.expr)]
-                            )
-                        ));
-                    }
                     break;
                 }
                 case ir.IrStmtType.Temp: {

@@ -3,8 +3,6 @@ import { simplifyExpr } from './utils';
 
 export function optimizeStmt(block: ir.IrBlock, stmt: ir.StmtWithMeta) {
     switch (stmt.kind) {
-        case ir.IrStmtType.Assignment:
-        case ir.IrStmtType.ExprStmt:
         case ir.IrStmtType.Loop:
         case ir.IrStmtType.Return: {
             const simplified = simplifyExpr(block, stmt.expr);

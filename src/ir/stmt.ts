@@ -7,10 +7,7 @@ import { TempVar, tempToString } from './temp';
 // import { Constraint } from './constraint';
 
 export const enum IrStmtType {
-    ExprStmt,
     Temp,
-    Assignment,
-    Set,
     Return,
     If,
     Loop,
@@ -26,36 +23,12 @@ export interface IrBase {
 /**
  * A statement containing an expression whose value is unused.
  */
-export interface IrExprStmt extends IrBase {
-    kind: IrStmtType.ExprStmt,
-    expr: IrExpr,
-}
-
 /**
  * An assignment of an IrExpr to a temp.
  */
 export interface IrTempStmt extends IrBase, TempVar {
     kind: IrStmtType.Temp,
     expr: IrExpr,
-}
-
-/**
- * An assignment to an lvalue.
- */
-export interface IrAssignmentStmt extends IrBase {
-    kind: IrStmtType.Assignment,
-    lvalue: Lvalue,
-    expr: IrExpr,
-}
-
-/**
- * Property set on an object.
- */
-export interface IrSetStmt extends IrBase {
-    kind: IrStmtType.Set,
-    object: IrTrivialExpr,
-    property?: IrTrivialExpr,
-    expr: IrTrivialExpr,
 }
 
 /**
@@ -116,10 +89,7 @@ export interface IrFunctionDeclarationStmt extends IrBase {
 }
 
 export type IrStmt =
-    IrExprStmt |
     IrTempStmt |
-    IrAssignmentStmt |
-    IrSetStmt |
     IrReturnStmt |
     IrIfStmt |
     IrLoopStmt |
@@ -139,17 +109,8 @@ export type StmtWithMeta = IrStmt & Partial<IrStmtMetadata>;
 
 export function stmtToString(stmt: IrStmt): string {
     switch (stmt.kind) {
-        case IrStmtType.ExprStmt: {
-            return exprToString(stmt.expr);
-        }
         case IrStmtType.Temp: {
             return `${tempToString(stmt)} = ${exprToString(stmt.expr)}`;
-        }
-        case IrStmtType.Assignment: {
-            return `${lvalueToString(stmt.lvalue)} = ${exprToString(stmt.expr)}`;
-        }
-        case IrStmtType.Set: {
-            return `${exprToString(stmt.object)}[${stmt.property ? exprToString(stmt.property) : ''}] = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;

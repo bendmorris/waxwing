@@ -16,6 +16,8 @@ export const enum IrExprType {
     Next,
     Function,
     // must be decomposed
+    Assign,
+    Set,
     Unop,
     Binop,
     Property,
@@ -176,6 +178,38 @@ export type IrTrivialExpr =
     IrFunctionExpr
 ;
 
+export interface IrAssignExpr {
+    kind: IrExprType.Assign,
+    operator?: BinaryOperator,
+    left: IrTrivialExpr,
+    right: IrTrivialExpr,
+}
+
+export function exprAssign(operator: BinaryOperator | undefined, left: IrTrivialExpr, right: IrTrivialExpr): IrAssignExpr {
+    return {
+        kind: IrExprType.Assign,
+        operator,
+        left,
+        right,
+    };
+}
+
+export interface IrSetExpr {
+    kind: IrExprType.Set,
+    expr: IrTrivialExpr,
+    property?: IrTrivialExpr,
+    value: IrTrivialExpr,
+}
+
+export function exprSet(expr: IrTrivialExpr, property: IrTrivialExpr | undefined, value: IrTrivialExpr): IrSetExpr {
+    return {
+        kind: IrExprType.Set,
+        expr,
+        property,
+        value,
+    };
+}
+
 export type UnaryOperator = '+' | '-' | '!' | '~' | 'delete' | 'void' | 'typeof' | 'throw';
 
 export interface IrUnopExpr {
@@ -257,11 +291,12 @@ export function exprCall(callee: IrTrivialExpr, args: IrTrivialExpr[], isNew: bo
  * IrTrivialExprs. To create statements, these must be decomposed by assigning
  * to temps.
  */
-export type IrExpr = IrTrivialExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr | IrNewInstanceExpr;
+export type IrExpr = IrTrivialExpr | IrAssignExpr | IrSetExpr | IrUnopExpr | IrBinopExpr | IrPropertyExpr |IrCallExpr | IrNewInstanceExpr;
 
 export function exprToString(expr: IrExpr) {
     switch (expr.kind) {
         case IrExprType.Arguments: return 'arguments';
+        case IrExprType.Assign: return `${exprToString(expr.left)} ${expr.operator || ''}= ${exprToString(expr.right)}`;
         case IrExprType.Binop: return `${exprToString(expr.left)} ${expr.operator} ${exprToString(expr.right)}`;
         case IrExprType.Call: return `${exprToString(expr.callee)}(${expr.args.map(exprToString).join(', ')})`;
         case IrExprType.NewInstance: {
@@ -278,6 +313,7 @@ export function exprToString(expr: IrExpr) {
         case IrExprType.Phi: return `phi(${expr.temps.map(tempToString).join(', ')})`;
         case IrExprType.Property: return `${exprToString(expr.expr)}[${exprToString(expr.property)}]`;
         case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;
+        case IrExprType.Set: return `${exprToString(expr.expr)}[${exprToString(expr.property)}] = ${exprToString(expr.value)}`;
         case IrExprType.Temp: return tempToString(expr);
         case IrExprType.This: return 'this';
         case IrExprType.Unop: return expr.prefix ? `${expr.operator}${exprToString(expr.expr)}` : `${exprToString(expr.expr)}${expr.operator}`;

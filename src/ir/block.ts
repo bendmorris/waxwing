@@ -53,24 +53,19 @@ class BaseExprBuilder<T extends s.IrStmt & { expr: e.IrExpr }> extends Statement
         this.stmt.expr = e.exprCall(callee, args, isNew);
         return this;
     }
-}
 
-export class ExprStmtBuilder extends BaseExprBuilder<s.IrExprStmt> {}
+    assign(left: e.IrTrivialExpr, right: e.IrTrivialExpr, operator?: e.BinaryOperator) {
+        this.stmt.expr = e.exprAssign(operator, left, right);
+        return this;
+    }
+
+    set(expr: e.IrTrivialExpr, property: e.IrTrivialExpr, value: e.IrTrivialExpr) {
+        this.stmt.expr = e.exprSet(expr, property, value);
+        return this;
+    }
+}
 
 export class TempBuilder extends BaseExprBuilder<s.IrTempStmt> {}
-export class AssignmentBuilder extends BaseExprBuilder<s.IrAssignmentStmt> {}
-
-export class SetBuilder extends BaseExprBuilder<s.IrSetStmt> {
-    object(expr: e.IrTrivialExpr) {
-        this.stmt.object = expr;
-        return this;
-    }
-
-    propertyName(expr: e.IrTrivialExpr | undefined) {
-        this.stmt.property = expr;
-        return this;
-    }
-}
 
 export class IfBuilder extends StatementBuilder<s.IrIfStmt> {
     condition(expr: e.IrTrivialExpr) {
@@ -199,11 +194,6 @@ export class IrBlock {
         this.body.push(stmt);
     }
 
-    expr() {
-        const stmt = { kind: s.IrStmtType.ExprStmt, expr: undefined} as s.IrExprStmt;
-        return new ExprStmtBuilder(this, stmt);
-    }
-
     /**
      * If this expression is already available, return the existing temp var.
      * Otherwise, add a new one and return it.
@@ -216,16 +206,6 @@ export class IrBlock {
     temp(blockId: number, varId: number) {
         const stmt = { kind: s.IrStmtType.Temp, blockId, varId, expr: undefined} as s.IrTempStmt;
         return new TempBuilder(this, stmt);
-    }
-
-    assign() {
-        const stmt = { kind: s.IrStmtType.Assignment, lvalue: undefined, expr: undefined} as s.IrAssignmentStmt;
-        return new AssignmentBuilder(this, stmt);
-    }
-
-    set() {
-        const stmt = { kind: s.IrStmtType.Set, object: undefined, property: undefined, expr: undefined} as s.IrSetStmt;
-        return new SetBuilder(this, stmt);
     }
 
     if() {
