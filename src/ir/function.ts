@@ -6,6 +6,11 @@ export interface FunctionArg {
     defaultValue?: any,
 }
 
+// export class IrFunction {
+//     def?: FunctionDefinition;
+//     blocks: IrBlock[];
+// }
+
 export class FunctionDefinition {
     program: IrProgram;
     name?: string;

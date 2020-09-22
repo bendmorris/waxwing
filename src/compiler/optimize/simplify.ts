@@ -1,5 +1,5 @@
 import * as ir from '../../ir';
-import { simplifyExpr, simplifyTrivialExpr } from './utils';
+import { simplifyExpr, simplifyTrivialExpr } from '../utils';
 
 export function optimizeStmt(block: ir.IrBlock, stmt: ir.IrStmt) {
     switch (stmt.kind) {
@@ -15,7 +15,7 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.IrStmt) {
         }
         case ir.IrStmtType.Temp: {
             const meta = block.getTempMetadata(stmt.varId);
-            meta.definition = stmt.expr = simplifyExpr(block, stmt.expr);
+            meta.expr = stmt.expr = simplifyExpr(block, stmt.expr);
             break;
         }
     }

@@ -2,6 +2,6 @@
 $0:0 = function f() goto 1
 
 1:
-$1:0 = {["a"]: 1, ["b"]: "something"}
+$1:0 = {"a": 1, "b": "something"}
 $1:1 = $1:0["b"]
 return $1:1

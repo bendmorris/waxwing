@@ -1,19 +1,22 @@
 import * as ir from '../../ir';
+import * as materializeInstances from './materializeInstances';
 import * as cullDeadStmts from './cullDeadStmts';
 import * as simplify from './simplify';
 import * as commonSubExpressions from './commonSubExpressions';
 import * as branchElimination from './branchElimination';
 import * as inlineInstances from './inlineInstances';
 import * as inlineTemps from './inlineTemps';
+import * as log from '../../log';
 
-const baseOptimizations: Optimization[] = [
+const baseOptimizations: Record<string, Optimization> = {
+    materializeInstances,
     cullDeadStmts,
     simplify,
     commonSubExpressions,
     branchElimination,
     inlineInstances,
     inlineTemps,
-]
+};
 
 /**
  * Optimization passes can be objects but are generally modules; if they export
@@ -29,7 +32,7 @@ interface OptimizationMethods {
 
 export type Optimization = Partial<OptimizationMethods>;
 
-export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
+export function applyOptimization(name: string, opt: Optimization, program: ir.IrProgram) {
     if (opt.optimizeProgram) {
         opt.optimizeProgram(program);
     }
@@ -58,10 +61,12 @@ export function applyOptimization(opt: Optimization, program: ir.IrProgram) {
             }
         }
     }
+
+    log.logDebug(`optimization pass: ${name}`, () => program.toString());
 }
 
 export function optimizeProgram(program: ir.IrProgram) {
-    for (const opt of baseOptimizations) {
-        applyOptimization(opt, program);
+    for (const key in baseOptimizations) {
+        applyOptimization(key, baseOptimizations[key], program);
     }
 }

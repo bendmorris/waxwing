@@ -1,6 +1,6 @@
 import * as ir from '../ir';
 import { Ast } from '../ast';
-import { markExprLive, markStmtLive } from './liveness';
+import { markExprLive, markStmtLive, markExprEscapes } from './liveness';
 import { IrScope, ScopeType } from './scope';
 import * as t from '@babel/types';
 
@@ -44,6 +44,7 @@ function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
  * decomposing, additional assignments will be added to `block`.
  */
 function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialExpr {
+    const program = block.program;
     function decompose(x: Ast) {
         return decomposeExpr(ctx, block, x);
     }
@@ -74,7 +75,13 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             } else if (t.isMemberExpression(ast.left)) {
                 const target = decompose(ast.left.object);
                 const prop = t.isIdentifier(ast.left.property) ? ir.exprLiteral(ast.left.property.name) : decompose(ast.left.property);
-                block.addTemp(ir.exprSet(target, prop, decomposed));
+                const newTemp = block.addTemp(ir.exprSet(target, prop, decomposed));
+                if (target.kind === ir.IrExprType.Temp) {
+                    const currentMeta = program.getTemp(target.blockId, target.varId);
+                    const newMeta = program.getTemp(target.blockId, target.varId);
+                    currentMeta.next = newTemp;
+                    newMeta.prev = newTemp;
+                }
                 return decomposed;
             } else {
                 throw new Error("TODO");
@@ -82,7 +89,14 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
         }
         case 'Identifier': {
             const found = resolveLval(ctx, ast);
-            return found.value || ir.exprIdentifier(found.lvalue);
+            if (found && found.value) {
+                let temp = program.getTemp(found.value.blockId, found.value.varId);
+                while (temp.next) {
+                    temp = program.getTemp(temp.next.blockId, temp.next.varId);
+                }
+                return ir.exprTemp2(temp.blockId, temp.varId);
+            }
+            return ir.exprIdentifier(found.lvalue);
         }
         case 'NumericLiteral':
         case 'BooleanLiteral':
@@ -130,7 +144,10 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             const temp = block.addTemp(ir.exprCall(callee, args, ast.type === 'NewExpression'));
             temp.effects.push(ir.effectIo());
             markStmtLive(temp);
-            args.forEach((x) => markExprLive(block, x));
+            args.forEach((x) => {
+                markExprEscapes(block, x);
+                markExprLive(block, x);
+            });
             return ir.exprTemp(temp);
         }
         case 'MemberExpression': {
@@ -140,16 +157,15 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             return ir.exprTemp(temp);
         }
         case 'ArrayExpression': {
-            const members = [];
+            let values = [];
             for (const value of ast.elements) {
-                members.push({ key: undefined, value: decompose(value) });
+                values.push(decompose(value));
             }
-            const instance = block.addInstance(true, members);
-            const id = instance.varId;
-            return temp(id);
+            const temp = block.addTemp(ir.exprNewArray(values));
+            return ir.exprTemp(temp);
         }
         case 'ObjectExpression': {
-            const members = [];
+            let members = [];
             for (const member of ast.properties) {
                 switch (member.type) {
                     case 'ObjectMethod': {
@@ -167,9 +183,8 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                     }
                 }
             }
-            const instance = block.addInstance(false, members);
-            const id = instance.varId;
-            return temp(id);
+            const temp = block.addTemp(ir.exprNewObject(members));
+            return ir.exprTemp(temp);
         }
         case 'FunctionExpression': {
             const def = new ir.FunctionDefinition(ctx.program);
@@ -196,12 +211,12 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 elseBlock = builder.else();
             const bodyVar = bodyBlock.nextTemp(),
                 elseVar = elseBlock.nextTemp();
-            bodyBlock.temp(builder.body().id, bodyVar).expr(bodyExpr).finish();
-            elseBlock.temp(builder.else().id, elseVar).expr(elseExpr).finish();
+            bodyBlock.temp(bodyVar).expr(bodyExpr).finish();
+            elseBlock.temp(elseVar).expr(elseExpr).finish();
             const stmt = builder.finish();
             markStmtLive(stmt);
             // FIXME: better way to split basic blocks? this phi goes in the next one
-            block.temp(block.id, phiVar).expr(ir.exprPhi([ir.temp(bodyBlock.id, bodyVar), ir.temp(elseBlock.id, elseVar)])).finish();
+            block.temp(phiVar).expr(ir.exprPhi([ir.temp(bodyBlock.id, bodyVar), ir.temp(elseBlock.id, elseVar)])).finish();
             return ir.exprTemp2(block.id, phiVar);
         }
     }
@@ -340,10 +355,10 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             const returnValue = ast.argument ? decompose(ast.argument) : ir.exprLiteral(undefined);
             const stmt = block.return(returnValue);
             markStmtLive(stmt);
+            markExprEscapes(block, returnValue);
             break;
         }
         case 'FunctionDeclaration': {
-            // FIXME: make a temp for the function
             // FIXME: initial pass to find function scoped variables and functions
 
             const def = new ir.FunctionDefinition(ctx.program);
@@ -355,6 +370,8 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                 // keep top level function declarations
                 markStmtLive(temp);
             }
+            ctx.functionScope.setBinding(ast.id.name, temp);
+            block.getTempMetadata(temp.varId).requiresRegister = true;
             break;
         }
         case 'ExpressionStatement': {

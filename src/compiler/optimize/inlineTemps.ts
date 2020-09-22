@@ -1,16 +1,21 @@
 import * as ir from '../../ir';
-import * as u from './utils';
+import * as u from '../utils';
+import { findReferences, ReferenceMap } from '../references';
 
-function optimizeBlock(block: ir.IrBlock, refs: u.ReferenceMap) {
+function optimizeBlock(block: ir.IrBlock, refs: ReferenceMap) {
     for (const temp in block.temps) {
         const meta = block.temps[temp];
+        if (meta.prev) {
+            meta.requiresRegister = false;
+            continue;
+        }
         const references = refs.getReferences(meta.blockId, meta.varId);
         if (references.length < 2) {
             // FIXME: be smarter about illegal relocations
             meta.requiresRegister = false;
             meta.inlined = !!references.length;
         } else {
-            const originalDef = meta.definition;
+            const originalDef = meta.expr;
             if (originalDef) {
                 const def = u.simplifyExpr(block, originalDef) || originalDef;
                 switch (def.kind) {
@@ -35,6 +40,6 @@ function optimizeBlock(block: ir.IrBlock, refs: u.ReferenceMap) {
 
 // TODO: replace `simplfyExpr` use with constraint solver
 export function optimizeFunction(firstBlock: ir.IrBlock) {
-    const refs = u.findReferences(firstBlock);
+    const refs = findReferences(firstBlock);
     optimizeBlock(firstBlock, refs);
 }

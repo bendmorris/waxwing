@@ -13,6 +13,8 @@ import { optimizeProgram } from './optimize';
  * - Serializes the optimized WWIR into a JS source string
  */
 export function compile(options: Options): string {
+
+
     let input: Ast[];
     if (typeof options.input === 'string') {
         input = parseFile(options.input);

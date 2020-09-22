@@ -4,6 +4,7 @@ import { parseFile } from '../ast';
 import { compile } from '../compiler';
 import { irCompile } from '../compiler/irCompile';
 import { Options, makeOptions } from '../options';
+const { js: beautify } = require('js-beautify');
 
 function globDir(dir: string, pattern: string): string[] {
     let results = [];
@@ -20,7 +21,7 @@ function globDir(dir: string, pattern: string): string[] {
 }
 
 function normalize(s) {
-    return s.replace(/\n+/g, '\n').replace(/ +/g, ' ').replace(/\n+/g, '\n');
+    return beautify(s);
 }
 
 /**

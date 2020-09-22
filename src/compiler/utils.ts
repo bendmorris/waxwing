@@ -1,4 +1,4 @@
-import * as ir from '../../ir';
+import * as ir from '../ir';
 
 const staticBinops = {
     '*': (a, b) => a * b,
@@ -37,9 +37,9 @@ export function simplifyTrivialExpr(block: ir.IrBlock, expr: ir.IrTrivialExpr): 
         case ir.IrExprType.Temp: {
             const definingBlock = block.program.getBlock(expr.blockId);
             const meta = definingBlock.getTempMetadata(expr.varId);
-            if (meta && meta.definition) {
-                const simplified = simplifyExpr(definingBlock, meta.definition);
-                meta.definition = simplified;
+            if (meta && meta.expr) {
+                const simplified = simplifyExpr(definingBlock, meta.expr);
+                meta.expr = simplified;
                 return ir.isTrivial(simplified) ? (simplified as ir.IrTrivialExpr) : expr;
             }
             return expr;
@@ -61,8 +61,8 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): ir.IrExpr {
         case ir.IrExprType.Temp: {
             const definingBlock = block.program.getBlock(expr.blockId);
             const meta = definingBlock.getTempMetadata(expr.varId);
-            if (meta && meta.definition) {
-                return simplifyExpr(definingBlock, meta.definition);
+            if (meta && meta.expr) {
+                return simplifyExpr(definingBlock, meta.expr);
             }
             return expr;
         }
@@ -102,31 +102,6 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): ir.IrExpr {
     return expr;
 }
 
-export class ReferenceMap {
-    refs: Record<number, Record<number, ir.IrStmt[]>>;
-
-    constructor() {
-        this.refs = {};
-    }
-
-    addReference(blockId: number, varId: number, stmt: ir.IrStmt) {
-        if (!this.refs[blockId]) {
-            this.refs[blockId] = {};
-        }
-        if (!this.refs[blockId][varId]) {
-            this.refs[blockId][varId] = [];
-        }
-        this.refs[blockId][varId].push(stmt);
-    }
-
-    getReferences(blockId: number, varId: number): ir.IrStmt[] {
-        if (this.refs[blockId]) {
-            return this.refs[blockId][varId] || [];
-        }
-        return [];
-    }
-}
-
 export function applyToNextBlocks(f: (block: ir.IrBlock) => void, block: ir.IrBlock) {
     const lastStmt = block.body[block.body.length - 1];
     if (lastStmt) {
@@ -150,23 +125,4 @@ export function applyToNextBlocks(f: (block: ir.IrBlock) => void, block: ir.IrBl
     if (block.nextBlock) {
         f(block.nextBlock);
     }
-}
-
-export function findReferences(block: ir.IrBlock, refs?: ReferenceMap): ReferenceMap {
-    if (!refs) {
-        refs = new ReferenceMap();
-    }
-    
-    for (const stmt of block.body) {
-        ir.applyToExprsInStmt((expr) => {
-            switch (expr.kind) {
-                case ir.IrExprType.Temp: {
-                    refs.addReference(expr.blockId, expr.varId, stmt);
-                    break;
-                }
-            }
-        }, stmt);
-    }
-    applyToNextBlocks((next) => findReferences(next, refs), block);
-    return refs;
 }

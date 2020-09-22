@@ -1,10 +1,9 @@
 import * as s from './stmt';
 import * as e from './expr';
+import * as u from './utils';
 import { Ast } from '../ast';
-import { FunctionDefinition } from './function';
 import { IrProgram } from './program';
-import { IrInstanceMetadata, InstanceMember } from './instance';
-import { IrTempMetadata } from './temp';
+// import { IrFunction } from './function';
 
 class StatementBuilder<T extends s.IrStmt> {
     block: IrBlock;
@@ -96,11 +95,11 @@ export class LoopBuilder extends StatementBuilder<s.IrLoopStmt> {
 export class IrBlock {
     id: number;
     program: IrProgram;
+    // function: IrFunction;
     container?: s.IrStmt;
     body: s.IrStmt[];
-    temps: Record<number, IrTempMetadata>;
+    temps: Record<number, s.IrTempStmt>;
     // map object instances to current generation
-    instances: Record<number, IrInstanceMetadata>;
     live: boolean;
     prevBlock?: IrBlock;
     nextBlock?: IrBlock;
@@ -117,7 +116,6 @@ export class IrBlock {
         this.container = undefined;
         this.body = [];
         this.temps = {};
-        this.instances = {};
         this.varDeclarations = {};
         this.varAssignments = {};
         this.available = {};
@@ -145,32 +143,17 @@ export class IrBlock {
     lastStmt(): s.IrStmt | undefined { return this.body[this.body.length - 1]; }
 
     nextTemp(): number {
-        const varId = this._nextTemp++;
-        this.temps[varId] = new IrTempMetadata(this.id, varId);
-        return varId;
-    }
-
-    addInstance(isArray: boolean, definition: InstanceMember[]): IrInstanceMetadata {
-        const tempId = this.nextTemp();
-        const instanceId = this._nextInstance++;
-        const constructor = isArray ? e.exprEmptyArray(instanceId) : e.exprEmptyObject(instanceId);
-        constructor.definition = definition;
-        const stmt = this.temp(this.id, tempId).expr(constructor).finish();
-        return this.instances[instanceId] = new IrInstanceMetadata(this, isArray, instanceId, tempId, stmt as any);
+        return this._nextTemp++;
     }
 
     containedBlock(container?: s.IrStmt) {
         const block = this.program.block();
         block.container = container;
+        // this.function.blocks.push(block);
         return block;
     }
 
     push(stmt: s.IrStmt) {
-        stmt.block = this;
-        Object.assign(stmt, {
-            live: false,
-            effects: [],
-        });
         let assignedTemp = -1;
         switch (stmt.kind) {
             case s.IrStmtType.Temp: {
@@ -178,8 +161,7 @@ export class IrBlock {
                     throw new TypeError("Attempting to assign undefined variable");
                 }
                 assignedTemp = stmt.varId;
-                this.temps[assignedTemp].origin = stmt;
-                this.temps[assignedTemp].definition = stmt.expr;
+                this.temps[assignedTemp] = stmt
 
                 switch (stmt.expr.kind) {
                     case e.IrExprType.Function: {
@@ -191,7 +173,31 @@ export class IrBlock {
                 break;
             }
         }
+        u.applyToExprsInStmt((expr) => {
+            switch (expr.kind) {
+                case e.IrExprType.Temp: {
+                    const temp = this.program.getTemp(expr.blockId, expr.varId);
+                    if (temp && temp.expr) {
+                        u.addReference(stmt, temp);
+                    }
+                    break;
+                }
+            }
+        }, stmt);
         this.body.push(stmt);
+    }
+
+    initStmt(_stmt: object): s.IrStmt {
+        const stmt = _stmt as s.IrStmt;
+        stmt.block = this;
+        Object.assign(stmt, {
+            live: false,
+            escapes: false,
+            references: new Set(),
+            backReferences: new Set(),
+            effects: [],
+        });
+        return stmt;
     }
 
     /**
@@ -200,53 +206,70 @@ export class IrBlock {
      */
     addTemp(expr: e.IrExpr): s.IrTempStmt {
         const tempId = this.nextTemp();
-        return this.temp(this.id, tempId).expr(expr).finish() as s.IrTempStmt;
+        return this.temp(tempId).expr(expr).finish() as s.IrTempStmt;
     }
 
-    temp(blockId: number, varId: number) {
-        const stmt = { kind: s.IrStmtType.Temp, blockId, varId, expr: undefined} as s.IrTempStmt;
+    temp(varId: number) {
+        const stmt = this.initStmt({
+            kind: s.IrStmtType.Temp,
+            blockId: this.id,
+            varId,
+            expr: undefined,
+            requiresRegister: true,
+            inlined: false,
+            escapes: false,
+            prev: undefined,
+            next: undefined,
+        }) as s.IrTempStmt;
         return new TempBuilder(this, stmt);
     }
 
+    goto(blockId: number) {
+        const stmt: s.IrStmt = this.initStmt({ kind: s.IrStmtType.Goto, blockId });
+        stmt.live = true;
+        this.push(stmt);
+        return stmt;   
+    }
+
     if() {
-        const stmt = { kind: s.IrStmtType.If, } as s.IrIfStmt;
+        const stmt = this.initStmt({ kind: s.IrStmtType.If, }) as s.IrIfStmt;
         return new IfBuilder(this, stmt);
     }
 
     while() {
-        const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.While } as s.IrLoopStmt;
+        const stmt = this.initStmt({ kind: s.IrStmtType.Loop, loopType: s.LoopType.While }) as s.IrLoopStmt;
         return new LoopBuilder(this, stmt);
     }
 
     doWhile() {
-        const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.DoWhile } as s.IrLoopStmt;
+        const stmt = this.initStmt({ kind: s.IrStmtType.Loop, loopType: s.LoopType.DoWhile }) as s.IrLoopStmt;
         return new LoopBuilder(this, stmt);
     }
 
     forIn() {
-        const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.ForIn } as s.IrLoopStmt;
+        const stmt = this.initStmt({ kind: s.IrStmtType.Loop, loopType: s.LoopType.ForIn }) as s.IrLoopStmt;
         return new LoopBuilder(this, stmt);
     }
 
     forOf() {
-        const stmt = { kind: s.IrStmtType.Loop, loopType: s.LoopType.ForOf } as s.IrLoopStmt;
+        const stmt = this.initStmt({ kind: s.IrStmtType.Loop, loopType: s.LoopType.ForOf }) as s.IrLoopStmt;
         return new LoopBuilder(this, stmt);
     }
 
     break() {
-        const stmt: s.IrStmt = { kind: s.IrStmtType.Break, };
+        const stmt: s.IrStmt = this.initStmt({ kind: s.IrStmtType.Break, });
         this.push(stmt);
         return stmt;
     }
 
     continue() {
-        const stmt: s.IrStmt = { kind: s.IrStmtType.Continue, };
+        const stmt: s.IrStmt = this.initStmt({ kind: s.IrStmtType.Continue, });
         this.push(stmt);
         return stmt;
     }
 
     return(expr?: e.IrTrivialExpr) {
-        const stmt: s.IrStmt = { kind: s.IrStmtType.Return, expr, };
+        const stmt: s.IrStmt = this.initStmt({ kind: s.IrStmtType.Return, expr, });
         this.push(stmt);
         return stmt;
     }

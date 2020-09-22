@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+require('colors');
 import { compile } from './compiler';
 import { makeOptions } from './options';
+import * as log from './log';
 import fs from 'fs';
 import process from 'process';
 import yargs from 'yargs';
@@ -8,24 +10,24 @@ import yargs from 'yargs';
 const args = yargs
     .scriptName('waxwing')
     .usage('$0 <cmd> [args]')
-    .command('$0 <inputFile>', `
+    .command('$0 <inputFile>', (`
 .                    .-.
 .                   /'v'\\
 .                  (/   \\)
 .                 ='="="===<
 .                    |_|
-. 
-.  _    _                      _             
-. | |  | |                    (_)            
-. | |  | | __ ___  ____      ___ _ __   __ _ 
+.` as any).yellow.bold + (`
+.  _    _                      _
+. | |  | |                    (_)
+. | |  | | __ ___  ____      ___ _ __   __ _
 . | |/\\| |/ _' \\ \\/ /\\ \\ /\\ / / | '_ \\ / _' |
 . \\  /\\  / (_| |>  <  \\ V  V /| | | | | (_| |
 .  \\/  \\/ \\__,_/_/\\_\\  \\_/\\_/ |_|_| |_|\\__, |
 .                                       __/ |
 .                                      |___/
-
+` as any).green.bold + (`
 Waxwing, an optimizing JavaScript compiler.
-    `, (yargs: yargs.Argv) =>
+` as any).cyan.bold, (yargs: yargs.Argv) =>
         yargs.positional('inputFile', {
             describe: "path to input file",
             type: 'string',
@@ -64,6 +66,8 @@ const options = makeOptions({
     outputIr: args.ir as boolean,
     compact: args.compact as boolean,
 });
+
+log.setLogLevel(options.verbose as log.LogLevel);
 
 const result = compile(options);
 

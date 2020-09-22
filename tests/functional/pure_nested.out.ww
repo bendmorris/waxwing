@@ -3,7 +3,7 @@ $0:0 = function f() goto 1
 
 1:
 $1:0 = function g() goto 2
-$1:1 = g()
+$1:1 = $1:0()
 return $1:1
 
 2:

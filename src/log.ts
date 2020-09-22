@@ -17,8 +17,8 @@ const levelNames = ['ERR', 'WRN', 'INF', 'DBG'];
 const levelColors: ((string) => any)[] = [
     (x) => x.red,
     (x) => x.yellow,
+    (x) => x.cyan,
     (x) => x.blue,
-    (x) => x.grey,
 ]
 
 function formatTime(t) {
@@ -26,7 +26,7 @@ function formatTime(t) {
     const m = Math.round((t % 3600) / 60);
     const s = Math.round(t % 60);
     const frac = t % 1;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}${frac.toFixed(4).substr(1)}`;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}${frac.toFixed(3).substr(1)}`;
 }
 
 type LogMsg = string | (() => string);
@@ -37,7 +37,7 @@ export function log(level: LogLevel, msg: LogMsg, extra?: LogMsg) {
         stderr.write(c(`[${formatTime(uptime())}] ${levelNames[level]}: `).bold + c(txt).bold + '\n');
         if (extra) {
             const txt2 = typeof extra === 'function' ? extra() : extra;
-            stderr.write(txt2 + '\n');
+            stderr.write(c(txt2) + '\n');
         }
     }
 }

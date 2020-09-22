@@ -1,18 +1,20 @@
-import { Lvalue, lvalueToString } from './lvalue';
 import { IrBlock } from './block';
 import { Effect } from './effect';
 import { IrExpr, IrTrivialExpr, exprToString } from './expr';
-import { FunctionDefinition } from './function';
 import { TempVar, tempToString } from './temp';
 // import { Constraint } from './constraint';
 
 export const enum IrStmtType {
     Temp,
+    Goto,
     Return,
     If,
     Loop,
     Continue,
     Break,
+    //Switch,
+    //Try,
+    //Throw,
 }
 
 export interface IrStmtMetadata {
@@ -20,6 +22,8 @@ export interface IrStmtMetadata {
     live: boolean,
     knownBranch?: boolean,
     effects: Effect[],
+    references: Set<IrStmt>,
+    backReferences: Set<IrStmt>,
 }
 
 export interface IrBase extends Partial<IrStmtMetadata> {
@@ -27,14 +31,22 @@ export interface IrBase extends Partial<IrStmtMetadata> {
 }
 
 /**
- * A statement containing an expression whose value is unused.
- */
-/**
  * An assignment of an IrExpr to a temp.
  */
 export interface IrTempStmt extends IrBase, TempVar {
     kind: IrStmtType.Temp,
     expr: IrExpr,
+    knownValue: any,
+    requiresRegister: boolean;
+    inlined: boolean;
+    escapes: boolean;
+    prev?: TempVar;
+    next?: TempVar;
+}
+
+export interface IrGotoStmt extends IrBase {
+    kind: IrStmtType.Goto,
+    blockId: number,
 }
 
 /**
@@ -88,6 +100,7 @@ export interface IrReturnStmt extends IrBase {
 
 export type IrStmt = (
     IrTempStmt |
+    IrGotoStmt |
     IrReturnStmt |
     IrIfStmt |
     IrLoopStmt |
@@ -99,6 +112,9 @@ export function stmtToString(stmt: IrStmt): string {
     switch (stmt.kind) {
         case IrStmtType.Temp: {
             return `${tempToString(stmt)} = ${exprToString(stmt.expr)}`;
+        }
+        case IrStmtType.Goto: {
+            return `goto ${stmt.blockId}`;
         }
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;

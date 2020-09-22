@@ -1,5 +1,5 @@
 import * as ir from '../../ir';
-import * as u from './utils';
+import * as u from '../utils';
 
 type AvailableMap = Record<string, ir.IrTempStmt>;
 
@@ -11,7 +11,9 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
     for (const stmt of block.body) {
         switch (stmt.kind) {
             case ir.IrStmtType.Temp: {
-                if (stmt.expr.kind === ir.IrExprType.NewInstance) {
+                if (stmt.expr.kind === ir.IrExprType.NewArray ||
+                    stmt.expr.kind === ir.IrExprType.NewObject)
+                {
                     break;
                 }
                 const expr = u.simplifyExpr(block, stmt.expr);
@@ -20,7 +22,7 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
                 const found = available[key];
                 if (found) {
                     const meta = block.getTempMetadata(stmt.varId);
-                    meta.definition = stmt.expr = ir.exprTemp(found);
+                    meta.expr = stmt.expr = ir.exprTemp(found);
                 } else {
                     available[key] = stmt;
                 }

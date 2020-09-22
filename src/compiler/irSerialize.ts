@@ -1,5 +1,6 @@
 import { Options } from '../options';
 import * as ir from '../ir';
+import { isLive } from './liveness';
 import * as babel from '@babel/core';
 import * as t from '@babel/types';
 
@@ -44,20 +45,25 @@ function registerName(registerId: number): string {
     return `$_r${registerId}`;
 }
 
+// function refersToInstanceState(program: ir.IrProgram, ) 
+
 function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t.Expression {
+    const program = block.program;
     function recurse(expr: ir.IrExpr) {
         return exprToAst(ctx, block, expr);
     }
     switch (expr.kind) {
         case ir.IrExprType.Temp: {
-            const meta = block.program.getBlock(expr.blockId).getTempMetadata(expr.varId);
-            if (!meta || !meta.definition) {
+            const meta = program.getBlock(expr.blockId).getTempMetadata(expr.varId);
+            if (!meta || !meta.expr) {
                 throw new Error(`Unrecognized temp variable: ${ir.tempToString(expr)}`);
             }
-            if (meta.requiresRegister) {
+            if (meta.expr.kind === ir.IrExprType.Function && meta.expr.def.name) {
+                return t.identifier(meta.expr.def.name);
+            } else if (meta.requiresRegister) {
                 return t.identifier(registerName(ctx.registerFor(expr.blockId, expr.varId)));
             }
-            return exprToAst(ctx, block, meta.definition);
+            return exprToAst(ctx, block, meta.expr);
         }
         case ir.IrExprType.Arguments: {
             return t.identifier('arguments');
@@ -87,24 +93,23 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
                 return t.callExpression(recurse(expr.callee), expr.args.map(recurse));
             }
         }
-        case ir.IrExprType.NewInstance: {
-            if (expr.isArray) {
-                return t.arrayExpression(expr.definition.map((x) => recurse(x.value)));
-            } else {
-                return t.objectExpression(expr.definition.map((x) => {
-                    let key = recurse(x.key),
-                        computed = true;
-                    switch (x.key.kind) {
-                        case ir.IrExprType.Literal: {
-                            if (typeof(x.key.value) === 'string' && isValidIdentifier(x.key.value)) {
-                                key = t.identifier(x.key.value);
-                                computed = false;
-                            }
+        case ir.IrExprType.NewObject: {
+            return t.objectExpression(expr.members.map((x) => {
+                let key = recurse(x.key),
+                    computed = true;
+                switch (x.key.kind) {
+                    case ir.IrExprType.Literal: {
+                        if (typeof(x.key.value) === 'string' && isValidIdentifier(x.key.value)) {
+                            key = t.identifier(x.key.value);
+                            computed = false;
                         }
                     }
-                    return t.objectProperty(key, recurse(x.value), computed);
-                }));
-            }
+                }
+                return t.objectProperty(key, recurse(x.value), computed);
+            }));
+        }
+        case ir.IrExprType.NewArray: {
+            return t.arrayExpression(expr.values.map(recurse));
         }
         case ir.IrExprType.Function: {
             const def = expr.def;
@@ -143,17 +148,34 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
             return expr.ast as t.Expression;
         }
         case ir.IrExprType.Set: {
+            let target;
+            if (expr.expr.kind === ir.IrExprType.Temp) {
+                let current: ir.TempVar = expr.expr;
+                do {
+                    const meta = program.getTemp(current.blockId, current.varId);
+                    if (meta.requiresRegister) {
+                        target = t.identifier(registerName(ctx.registerFor(current.blockId, current.varId)));   
+                        break;
+                    }
+                    current = meta.prev;
+                } while (current);
+                if (!target) {
+                    target = exprToAst(ctx, block, expr.expr);
+                }
+            } else {
+                target = exprToAst(ctx, block, expr.expr);
+            }
             let lhs;
             if (expr.property) {
                 if (expr.property.kind === ir.IrExprType.Literal && typeof expr.property.value === 'string' && isValidIdentifier(expr.property.value)) {
-                    lhs = t.memberExpression(exprToAst(ctx, block, expr.expr), t.identifier(expr.property.value), false);
+                    lhs = t.memberExpression(target, t.identifier(expr.property.value), false);
                 } else {
-                    lhs = t.memberExpression(exprToAst(ctx, block, expr.expr), exprToAst(ctx, block, expr.property), false);
+                    lhs = t.memberExpression(target, exprToAst(ctx, block, expr.property), false);
                 }
                 return t.assignmentExpression('=', lhs, exprToAst(ctx, block, expr.value));
             } else {
                 t.callExpression(
-                    t.memberExpression(exprToAst(ctx, block, expr.expr), t.identifier('push')),
+                    t.memberExpression(target, t.identifier('push')),
                     [exprToAst(ctx, block, expr.value)]
                 );
             }
@@ -174,8 +196,11 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
         stmts = [];
     }
     while (block) {
-        for (const stmt of block.body) {
-            if (!stmt.live) {
+        let i = 0;
+        while (i < block.body.length) {
+            const stmt  = block.body[i];
+            if (!isLive(stmt)) {
+                ++i;
                 continue;
             }
             switch (stmt.kind) {
@@ -187,48 +212,32 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                     stmts.push(t.continueStatement());
                     break;
                 }
+                case ir.IrStmtType.Goto: {
+                    blockToAst(ctx, program.getBlock(stmt.blockId), stmts);
+                    break;
+                }
                 case ir.IrStmtType.If: {
-                    if (stmt.knownBranch === true) {
-                        blockToAst(ctx, stmt.body, stmts);
-                    } else if (stmt.knownBranch === false) {
-                        if (stmt.elseBody) {
-                            blockToAst(ctx, stmt.elseBody, stmts);
-                        }
-                    } else {
-                        stmts.push(t.ifStatement(
-                            exprToAst(ctx, block, stmt.condition),
-                            t.blockStatement(blockToAst(ctx, stmt.body)),
-                            stmt.elseBody ? t.blockStatement(blockToAst(ctx, stmt.elseBody)) : undefined
-                        ));
-                    }
+                    stmts.push(t.ifStatement(
+                        exprToAst(ctx, block, stmt.condition),
+                        t.blockStatement(blockToAst(ctx, stmt.body)),
+                        stmt.elseBody ? t.blockStatement(blockToAst(ctx, stmt.elseBody)) : undefined
+                    ));
                     break;
                 }
                 case ir.IrStmtType.Loop: {
                     switch (stmt.loopType) {
                         case ir.LoopType.While: {
-                            // TODO: if knownBranch is true but the loop breaks, eliminate the loop
-                            // FIXME: a `continue` at the end of the body should be removed
-                            if (stmt.knownBranch === false) {
-                                // noop
-                            } else {
-                                stmts.push(t.whileStatement(
-                                    exprToAst(ctx, block, stmt.expr),
-                                    t.blockStatement(blockToAst(ctx, stmt.body))
-                                ));
-                            }
+                            stmts.push(t.whileStatement(
+                                exprToAst(ctx, block, stmt.expr),
+                                t.blockStatement(blockToAst(ctx, stmt.body))
+                            ));
                             break;
                         }
                         case ir.LoopType.DoWhile: {
-                            if (stmt.knownBranch === false) {
-                                // we know this loop will execute exactly once
-                                // FIXME: this will still include `break` and `continue`
-                                blockToAst(ctx, stmt.body, stmts);
-                            } else {
-                                stmts.push(t.doWhileStatement(
-                                    exprToAst(ctx, block, stmt.expr),
-                                    t.blockStatement(blockToAst(ctx, stmt.body))
-                                ));
-                            }
+                            stmts.push(t.doWhileStatement(
+                                exprToAst(ctx, block, stmt.expr),
+                                t.blockStatement(blockToAst(ctx, stmt.body))
+                            ));
                             break;
                         }
                         case ir.LoopType.ForIn: {
@@ -251,7 +260,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                     switch (stmt.expr.kind) {
                         case ir.IrExprType.Function: {
                             const def = stmt.expr.def;
-                            let name = def.name;;
+                            let name = def.name;
                             if (!name) {
                                 const register = ctx.registerFor(stmt.blockId, stmt.varId)
                                 name = registerName(register);
@@ -279,6 +288,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                     }
                 }
             }
+            ++i;
         }
         block = block.nextBlock;
     }

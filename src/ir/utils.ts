@@ -5,6 +5,16 @@ import { IrStmtType, IrStmt } from './stmt';
 type StmtCallback = (x: IrStmt) => void;
 type IrExprCallback = (x: IrExpr) => void;
 
+export function addReference(from: IrStmt, to: IrStmt) {
+    from.references.add(to);
+    to.backReferences.add(from);
+}
+
+export function removeReference(from: IrStmt, to: IrStmt) {
+    from.references.delete(to);
+    to.backReferences.delete(from);
+}
+
 export function applyToStmtsInBlock(f: StmtCallback, block: IrBlock) {
     for (const stmt of block.body) {
         f(stmt);
@@ -89,7 +99,9 @@ export function applyToExprsInExpr(f: IrExprCallback, expr: IrExpr) {
         }
         case IrExprType.Set: {
             f(expr.expr);
-            f(expr.property);
+            if (expr.property) {
+                f(expr.property);
+            }
             f(expr.value);
             break;
         }
