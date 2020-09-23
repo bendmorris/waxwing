@@ -6,7 +6,7 @@ while something goto 2
 (goto 4)
 
 2:
-$2:0 = log("loop body 1")
+$2:0 = log("loop body 1") (IO)
 if somethingElse goto 3
 
 3:
@@ -18,7 +18,7 @@ while $4:0 goto 5
 (goto 7)
 
 5:
-$5:0 = log("loop body 2")
+$5:0 = log("loop body 2") (IO)
 if somethingElse goto 6
 
 6:
@@ -29,4 +29,4 @@ $7:0 = true && false
 do while $7:0 goto 8
 
 8:
-$8:0 = log("loop body 3")
+$8:0 = log("loop body 3") (IO)

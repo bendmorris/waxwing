@@ -1,6 +1,7 @@
 import * as s from './stmt';
 import * as e from './expr';
 import * as u from './utils';
+import { TempVar } from './temp';
 import { Ast } from '../ast';
 import { IrProgram } from './program';
 // import { IrFunction } from './function';
@@ -154,14 +155,12 @@ export class IrBlock {
     }
 
     push(stmt: s.IrStmt) {
-        let assignedTemp = -1;
         switch (stmt.kind) {
             case s.IrStmtType.Temp: {
                 if (stmt.varId === undefined) {
                     throw new TypeError("Attempting to assign undefined variable");
                 }
-                assignedTemp = stmt.varId;
-                this.temps[assignedTemp] = stmt
+                this.temps[stmt.varId] = stmt
 
                 switch (stmt.expr.kind) {
                     case e.IrExprType.Function: {
@@ -200,6 +199,19 @@ export class IrBlock {
         return stmt;
     }
 
+    private newTempStmt(varId: number): s.IrTempStmt {
+        return this.initStmt({
+            kind: s.IrStmtType.Temp,
+            blockId: this.id,
+            varId,
+            expr: undefined,
+            requiresRegister: true,
+            inlined: false,
+            escapes: false,
+            prev: undefined,
+        }) as s.IrTempStmt;
+    }
+
     /**
      * If this expression is already available, return the existing temp var.
      * Otherwise, add a new one and return it.
@@ -209,18 +221,20 @@ export class IrBlock {
         return this.temp(tempId).expr(expr).finish() as s.IrTempStmt;
     }
 
+    newGeneration(stmt: s.IrStmt, temp: TempVar): s.IrTempStmt {
+        const tempId = this.nextTemp();
+        const gen = this.newTempStmt(tempId);
+        gen.expr = e.exprTemp(temp);
+        const meta = this.getTempMetadata(temp.varId);
+        gen.prev = meta;
+        meta.next = gen;
+        stmt.effects.push(gen);
+        this.temps[gen.varId] = gen;
+        return gen;
+    }
+
     temp(varId: number) {
-        const stmt = this.initStmt({
-            kind: s.IrStmtType.Temp,
-            blockId: this.id,
-            varId,
-            expr: undefined,
-            requiresRegister: true,
-            inlined: false,
-            escapes: false,
-            prev: undefined,
-            next: undefined,
-        }) as s.IrTempStmt;
+        const stmt = this.newTempStmt(varId);
         return new TempBuilder(this, stmt);
     }
 

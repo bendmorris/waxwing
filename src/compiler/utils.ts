@@ -108,16 +108,18 @@ export function applyToNextBlocks(f: (block: ir.IrBlock) => void, block: ir.IrBl
         switch (lastStmt.kind) {
             case ir.IrStmtType.If: {
                 f(lastStmt.body);
-                applyToNextBlocks(f, lastStmt.body);
                 if (lastStmt.elseBody) {
                     f(lastStmt.elseBody);
-                    applyToNextBlocks(f, lastStmt.elseBody);
                 }
                 break;
             }
             case ir.IrStmtType.Loop: {
                 f(lastStmt.body);
-                applyToNextBlocks(f, lastStmt.body);
+                break;
+            }
+            case ir.IrStmtType.Goto: {
+                const newBlock =block.program.getBlock(lastStmt.blockId);
+                f(newBlock);
                 break;
             }
         }

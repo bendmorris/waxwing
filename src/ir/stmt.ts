@@ -21,9 +21,9 @@ export interface IrStmtMetadata {
     block: IrBlock,
     live: boolean,
     knownBranch?: boolean,
-    effects: Effect[],
     references: Set<IrStmt>,
     backReferences: Set<IrStmt>,
+    effects: (IrTempStmt | undefined)[],
 }
 
 export interface IrBase extends Partial<IrStmtMetadata> {
@@ -37,13 +37,17 @@ export interface IrTempStmt extends IrBase, TempVar {
     kind: IrStmtType.Temp,
     expr: IrExpr,
     knownValue: any,
-    requiresRegister: boolean;
-    inlined: boolean;
-    escapes: boolean;
-    prev?: TempVar;
-    next?: TempVar;
+    requiresRegister: boolean,
+    inlined: boolean,
+    escapes: boolean,
+    prev?: IrTempStmt,
+    next?: IrTempStmt,
 }
 
+/**
+ * Not used during WWIR compilation; a goto should only be placed at the end of
+ * a block as a replacement for a previous branch which has been eliminated.
+ */
 export interface IrGotoStmt extends IrBase {
     kind: IrStmtType.Goto,
     blockId: number,
@@ -108,7 +112,7 @@ export type IrStmt = (
     IrBreakStmt
 );
 
-export function stmtToString(stmt: IrStmt): string {
+function stmtToStringBase(stmt: IrStmt): string {
     switch (stmt.kind) {
         case IrStmtType.Temp: {
             return `${tempToString(stmt)} = ${exprToString(stmt.expr)}`;
@@ -129,6 +133,14 @@ export function stmtToString(stmt: IrStmt): string {
         case IrStmtType.Continue: return `continue`;
         case IrStmtType.Break: return `break`;
     }
+}
+
+export function stmtToString(stmt: IrStmt): string {
+    let base = stmtToStringBase(stmt);
+    if (stmt.effects.length) {
+        base += ` (${stmt.effects.map((x) => x ? `${tempToString(x.prev)} => ${tempToString(x)}` : 'IO').join(', ')})`;
+    }
+    return base;
 }
 
 export function isBlockBoundary(stmt: IrStmt) {

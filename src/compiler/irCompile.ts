@@ -78,11 +78,9 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 const newTemp = block.addTemp(ir.exprSet(target, prop, decomposed));
                 if (target.kind === ir.IrExprType.Temp) {
                     const currentMeta = program.getTemp(target.blockId, target.varId);
-                    const newMeta = program.getTemp(target.blockId, target.varId);
-                    currentMeta.next = newTemp;
-                    newMeta.prev = newTemp;
+                    block.newGeneration(newTemp, currentMeta);
                 }
-                return decomposed;
+                return ir.exprTemp(newTemp);
             } else {
                 throw new Error("TODO");
             }
@@ -142,7 +140,7 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             const callee = decompose(ast.callee),
                 args = ast.arguments.map(decompose);
             const temp = block.addTemp(ir.exprCall(callee, args, ast.type === 'NewExpression'));
-            temp.effects.push(ir.effectIo());
+            temp.effects.push(undefined);
             markStmtLive(temp);
             args.forEach((x) => {
                 markExprEscapes(block, x);
