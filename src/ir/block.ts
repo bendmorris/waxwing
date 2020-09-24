@@ -1,7 +1,7 @@
 import * as s from './stmt';
 import * as e from './expr';
 import * as u from './utils';
-import { TempVar } from './temp';
+import { tempToString, TempVar } from './temp';
 import { Ast } from '../ast';
 import { IrProgram } from './program';
 // import { IrFunction } from './function';
@@ -99,7 +99,8 @@ export class IrBlock {
     // function: IrFunction;
     container?: s.IrStmt;
     body: s.IrStmt[];
-    temps: Record<number, s.IrTempStmt>;
+    temps: Record<number, (s.IrTempStmt | s.IrGenerationStmt) & TempVar>;
+    next: Record<string, TempVar>;
     // map object instances to current generation
     live: boolean;
     prevBlock?: IrBlock;
@@ -117,6 +118,7 @@ export class IrBlock {
         this.container = undefined;
         this.body = [];
         this.temps = {};
+        this.next = {};
         this.varDeclarations = {};
         this.varAssignments = {};
         this.available = {};
@@ -125,6 +127,13 @@ export class IrBlock {
     }
 
     getTempMetadata(varId: number) { return this.temps[varId]; }
+    getTempDefinition(varId: number): s.IrTempStmt | undefined {
+        let x = this.temps[varId];
+        while (x.kind === s.IrStmtType.Generation) {
+            x = this.program.getTemp(x.from.blockId, x.from.varId);
+        }
+        return x;
+    }
 
     addDeclaration(scopeId: number, name: string, tempId: number) {
         if (!this.varDeclarations[scopeId]) {
@@ -162,13 +171,6 @@ export class IrBlock {
                 }
                 this.temps[stmt.varId] = stmt
 
-                switch (stmt.expr.kind) {
-                    case e.IrExprType.Function: {
-                        this.program.functions.push(stmt.expr.def.body);
-                        break;
-                    }
-                }
-
                 break;
             }
         }
@@ -176,7 +178,7 @@ export class IrBlock {
             switch (expr.kind) {
                 case e.IrExprType.Temp: {
                     const temp = this.program.getTemp(expr.blockId, expr.varId);
-                    if (temp && temp.expr) {
+                    if (temp && temp.kind == s.IrStmtType.Temp && temp.expr) {
                         u.addReference(stmt, temp);
                     }
                     break;
@@ -199,19 +201,6 @@ export class IrBlock {
         return stmt;
     }
 
-    private newTempStmt(varId: number): s.IrTempStmt {
-        return this.initStmt({
-            kind: s.IrStmtType.Temp,
-            blockId: this.id,
-            varId,
-            expr: undefined,
-            requiresRegister: true,
-            inlined: false,
-            escapes: false,
-            prev: undefined,
-        }) as s.IrTempStmt;
-    }
-
     /**
      * If this expression is already available, return the existing temp var.
      * Otherwise, add a new one and return it.
@@ -221,20 +210,32 @@ export class IrBlock {
         return this.temp(tempId).expr(expr).finish() as s.IrTempStmt;
     }
 
-    newGeneration(stmt: s.IrStmt, temp: TempVar): s.IrTempStmt {
+    newGeneration(stmt: s.IrStmt, temp: TempVar): s.IrGenerationStmt {
         const tempId = this.nextTemp();
-        const gen = this.newTempStmt(tempId);
-        gen.expr = e.exprTemp(temp);
-        const meta = this.getTempMetadata(temp.varId);
-        gen.prev = meta;
-        meta.next = gen;
+        const gen = this.initStmt({
+            kind: s.IrStmtType.Generation,
+            blockId: this.id,
+            varId: tempId,
+            from: temp,
+            source: stmt,
+        }) as s.IrGenerationStmt;
         stmt.effects.push(gen);
         this.temps[gen.varId] = gen;
+        this.next[tempToString(temp)] = gen;
         return gen;
     }
 
     temp(varId: number) {
-        const stmt = this.newTempStmt(varId);
+        const stmt = this.initStmt({
+            kind: s.IrStmtType.Temp,
+            blockId: this.id,
+            varId,
+            expr: undefined,
+            requiresRegister: true,
+            inlined: false,
+            escapes: false,
+            prev: undefined,
+        }) as s.IrTempStmt;
         return new TempBuilder(this, stmt);
     }
 

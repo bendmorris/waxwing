@@ -1,6 +1,6 @@
 import * as ir from '../../ir';
-import * as materializeInstances from './materializeInstances';
 import * as cullDeadStmts from './cullDeadStmts';
+import * as materializeInstances from './materializeInstances';
 import * as simplify from './simplify';
 import * as commonSubExpressions from './commonSubExpressions';
 import * as branchElimination from './branchElimination';
@@ -9,8 +9,8 @@ import * as inlineTemps from './inlineTemps';
 import * as log from '../../log';
 
 const baseOptimizations: Record<string, Optimization> = {
-    materializeInstances,
     cullDeadStmts,
+    materializeInstances,
     simplify,
     commonSubExpressions,
     branchElimination,

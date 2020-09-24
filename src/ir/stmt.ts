@@ -15,6 +15,7 @@ export const enum IrStmtType {
     //Switch,
     //Try,
     //Throw,
+    Generation,
 }
 
 export interface IrStmtMetadata {
@@ -23,7 +24,7 @@ export interface IrStmtMetadata {
     knownBranch?: boolean,
     references: Set<IrStmt>,
     backReferences: Set<IrStmt>,
-    effects: (IrTempStmt | undefined)[],
+    effects: (IrGenerationStmt | undefined)[],
 }
 
 export interface IrBase extends Partial<IrStmtMetadata> {
@@ -40,8 +41,7 @@ export interface IrTempStmt extends IrBase, TempVar {
     requiresRegister: boolean,
     inlined: boolean,
     escapes: boolean,
-    prev?: IrTempStmt,
-    next?: IrTempStmt,
+    origin?: IrStmt,
 }
 
 /**
@@ -102,6 +102,15 @@ export interface IrReturnStmt extends IrBase {
     expr?: IrTrivialExpr,
 }
 
+/**
+ * Used to track an effect; not part of the program.
+ */
+export interface IrGenerationStmt extends IrBase, TempVar {
+    kind: IrStmtType.Generation,
+    from: TempVar,
+    source: IrStmt,
+}
+
 export type IrStmt = (
     IrTempStmt |
     IrGotoStmt |
@@ -109,7 +118,8 @@ export type IrStmt = (
     IrIfStmt |
     IrLoopStmt |
     IrContinueStmt |
-    IrBreakStmt
+    IrBreakStmt |
+    IrGenerationStmt
 );
 
 function stmtToStringBase(stmt: IrStmt): string {
@@ -132,13 +142,14 @@ function stmtToStringBase(stmt: IrStmt): string {
         }
         case IrStmtType.Continue: return `continue`;
         case IrStmtType.Break: return `break`;
+        case IrStmtType.Generation: return `${tempToString(stmt.from)} => ${tempToString(stmt)}`;
     }
 }
 
 export function stmtToString(stmt: IrStmt): string {
     let base = stmtToStringBase(stmt);
     if (stmt.effects.length) {
-        base += ` (${stmt.effects.map((x) => x ? `${tempToString(x.prev)} => ${tempToString(x)}` : 'IO').join(', ')})`;
+        base += ` (${stmt.effects.map((x) => x ? `${stmtToString(x)}` : 'IO').join(', ')})`;
     }
     return base;
 }

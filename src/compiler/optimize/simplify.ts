@@ -14,7 +14,7 @@ export function optimizeStmt(block: ir.IrBlock, stmt: ir.IrStmt) {
             break;
         }
         case ir.IrStmtType.Temp: {
-            const meta = block.getTempMetadata(stmt.varId);
+            const meta = block.getTempDefinition(stmt.varId);
             meta.expr = stmt.expr = simplifyExpr(block, stmt.expr);
             break;
         }

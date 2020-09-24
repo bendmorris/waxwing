@@ -3,6 +3,7 @@ import { Ast, parseFile } from '../ast';
 import { irCompile } from './irCompile';
 import { irSerialize } from './irSerialize';
 import { optimizeProgram } from './optimize';
+import * as log from '../log';
 
 /**
  * This is the main compiler entry point.
@@ -13,17 +14,19 @@ import { optimizeProgram } from './optimize';
  * - Serializes the optimized WWIR into a JS source string
  */
 export function compile(options: Options): string {
-
-
     let input: Ast[];
     if (typeof options.input === 'string') {
+        log.logInfo(`parsing file: ${options.input}`);
         input = parseFile(options.input);
     } else {
+        log.logInfo('compiling Babel AST');
         input = options.input;
     }
 
     // compile AST into an IrBlock
     const ir = irCompile(input);
+
+    log.logInfo('initial IR:', () => ir.toString());
 
     if (options.outputIr) {
         return ir.toString();

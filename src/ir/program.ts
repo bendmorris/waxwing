@@ -24,4 +24,5 @@ export class IrProgram {
 
     getBlock(blockId: number) { return this.blocks[blockId]; }
     getTemp(blockId: number, varId: number) { return this.getBlock(blockId).getTempMetadata(varId); }
+    getTempDefinition(blockId: number, varId: number) { return this.getBlock(blockId).getTempDefinition(varId); }
 }

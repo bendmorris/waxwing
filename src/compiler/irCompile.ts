@@ -3,6 +3,7 @@ import { Ast } from '../ast';
 import { markExprLive, markStmtLive, markExprEscapes } from './liveness';
 import { IrScope, ScopeType } from './scope';
 import * as t from '@babel/types';
+import { tempToString } from '../ir';
 
 function resolveLval(scope: IrScope, lval: t.LVal): { name?: string, lvalue: ir.Lvalue, scope?: IrScope, value?: ir.IrTempExpr } {
     switch (lval.type) {
@@ -89,8 +90,9 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             const found = resolveLval(ctx, ast);
             if (found && found.value) {
                 let temp = program.getTemp(found.value.blockId, found.value.varId);
-                while (temp.next) {
-                    temp = program.getTemp(temp.next.blockId, temp.next.varId);
+                let next;
+                while (next = block.next[tempToString(temp)]) {
+                    temp = next;
                 }
                 return ir.exprTemp2(temp.blockId, temp.varId);
             }
@@ -369,7 +371,7 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                 markStmtLive(temp);
             }
             ctx.functionScope.setBinding(ast.id.name, temp);
-            block.getTempMetadata(temp.varId).requiresRegister = true;
+            block.getTempDefinition(temp.varId).requiresRegister = true;
             break;
         }
         case 'ExpressionStatement': {

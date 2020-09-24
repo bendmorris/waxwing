@@ -36,8 +36,8 @@ export function simplifyTrivialExpr(block: ir.IrBlock, expr: ir.IrTrivialExpr): 
     switch (expr.kind) {
         case ir.IrExprType.Temp: {
             const definingBlock = block.program.getBlock(expr.blockId);
-            const meta = definingBlock.getTempMetadata(expr.varId);
-            if (meta && meta.expr) {
+            const meta = definingBlock.getTempDefinition(expr.varId);
+            if (meta && meta.kind === ir.IrStmtType.Temp && meta.expr) {
                 const simplified = simplifyExpr(definingBlock, meta.expr);
                 meta.expr = simplified;
                 return ir.isTrivial(simplified) ? (simplified as ir.IrTrivialExpr) : expr;
@@ -61,7 +61,7 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): ir.IrExpr {
         case ir.IrExprType.Temp: {
             const definingBlock = block.program.getBlock(expr.blockId);
             const meta = definingBlock.getTempMetadata(expr.varId);
-            if (meta && meta.expr) {
+            if (meta && meta.kind === ir.IrStmtType.Temp && meta.expr) {
                 return simplifyExpr(definingBlock, meta.expr);
             }
             return expr;
@@ -102,29 +102,38 @@ export function simplifyExpr(block: ir.IrBlock, expr: ir.IrExpr): ir.IrExpr {
     return expr;
 }
 
-export function applyToNextBlocks(f: (block: ir.IrBlock) => void, block: ir.IrBlock) {
+export function getNextBlocks(block: ir.IrBlock): ir.IrBlock[] {
+    const result = [];
     const lastStmt = block.body[block.body.length - 1];
     if (lastStmt) {
         switch (lastStmt.kind) {
             case ir.IrStmtType.If: {
-                f(lastStmt.body);
+                result.push(lastStmt.body);
                 if (lastStmt.elseBody) {
-                    f(lastStmt.elseBody);
+                    result.push(lastStmt.elseBody);
                 }
                 break;
             }
             case ir.IrStmtType.Loop: {
-                f(lastStmt.body);
+                result.push(lastStmt.body);
                 break;
             }
             case ir.IrStmtType.Goto: {
-                const newBlock =block.program.getBlock(lastStmt.blockId);
-                f(newBlock);
+                const newBlock = block.program.getBlock(lastStmt.blockId);
+                result.push(newBlock);
                 break;
             }
         }
     }
     if (block.nextBlock) {
-        f(block.nextBlock);
+        result.push(block.nextBlock);
+    }
+    return result;
+}
+
+
+export function applyToNextBlocks(f: (block: ir.IrBlock) => void, block: ir.IrBlock) {
+    for (const next of getNextBlocks(block)) {
+        f(next);
     }
 }

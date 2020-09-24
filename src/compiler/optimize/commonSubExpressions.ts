@@ -21,7 +21,7 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
                 const key = ir.exprToString(expr);
                 const found = available[key];
                 if (found) {
-                    const meta = block.getTempMetadata(stmt.varId);
+                    const meta = block.getTempDefinition(stmt.varId);
                     meta.expr = stmt.expr = ir.exprTemp(found);
                 } else {
                     available[key] = stmt;

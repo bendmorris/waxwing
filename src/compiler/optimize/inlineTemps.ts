@@ -3,12 +3,8 @@ import * as u from '../utils';
 import { findReferences, ReferenceMap } from '../references';
 
 function optimizeBlock(block: ir.IrBlock, refs: ReferenceMap) {
-    for (const temp in block.temps) {
-        const meta = block.temps[temp];
-        if (meta.prev) {
-            meta.requiresRegister = false;
-            continue;
-        }
+    for (const temp of Object.values(block.temps)) {
+        const meta = block.getTempDefinition(temp.varId);
         const references = refs.getReferences(meta.blockId, meta.varId);
         if (references.length < 2) {
             // FIXME: be smarter about illegal relocations

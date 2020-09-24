@@ -54,7 +54,7 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
     }
     switch (expr.kind) {
         case ir.IrExprType.Temp: {
-            const meta = program.getBlock(expr.blockId).getTempMetadata(expr.varId);
+            const meta = program.getBlock(expr.blockId).getTempDefinition(expr.varId);
             if (!meta || !meta.expr) {
                 throw new Error(`Unrecognized temp variable: ${ir.tempToString(expr)}`);
             }
@@ -151,15 +151,10 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
             let target;
             if (expr.expr.kind === ir.IrExprType.Temp) {
                 let current: ir.TempVar = expr.expr;
-                do {
-                    const meta = program.getTemp(current.blockId, current.varId);
-                    if (meta.requiresRegister) {
-                        target = t.identifier(registerName(ctx.registerFor(current.blockId, current.varId)));   
-                        break;
-                    }
-                    current = meta.prev;
-                } while (current);
-                if (!target) {
+                const meta = program.getTempDefinition(current.blockId, current.varId);
+                if (meta.requiresRegister) {
+                    target = t.identifier(registerName(ctx.registerFor(current.blockId, current.varId)));   
+                } else {
                     target = exprToAst(ctx, block, expr.expr);
                 }
             } else {
@@ -256,7 +251,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                     break;
                 }
                 case ir.IrStmtType.Temp: {
-                    const meta = program.getBlock(stmt.blockId).getTempMetadata(stmt.varId);
+                    const meta = program.getBlock(stmt.blockId).getTempDefinition(stmt.varId);
                     switch (stmt.expr.kind) {
                         case ir.IrExprType.Function: {
                             const def = stmt.expr.def;

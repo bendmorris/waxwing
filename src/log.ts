@@ -5,7 +5,8 @@ export enum LogLevel {
     Error,
     Warning,
     Info,
-    Debug
+    Debug,
+    Chatty,
 }
 
 let logLevel: LogLevel = LogLevel.Warning;
@@ -13,12 +14,13 @@ export function setLogLevel(level: LogLevel) {
     logLevel = level;
 } 
 
-const levelNames = ['ERR', 'WRN', 'INF', 'DBG'];
-const levelColors: ((string) => any)[] = [
-    (x) => x.red,
-    (x) => x.yellow,
-    (x) => x.cyan,
-    (x) => x.blue,
+const levelNames = ['ERR', 'WRN', 'INF', 'DBG', '...'];
+const levelColors: ((any) => any)[] = [
+    (x) => (String(x) as any).red,
+    (x) => (String(x) as any).yellow,
+    (x) => (String(x) as any).cyan,
+    (x) => (String(x) as any).blue,
+    (x) => (String(x) as any).white,
 ]
 
 function formatTime(t) {
@@ -29,7 +31,7 @@ function formatTime(t) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}${frac.toFixed(3).substr(1)}`;
 }
 
-type LogMsg = string | (() => string);
+type LogMsg = any | (() => any);
 export function log(level: LogLevel, msg: LogMsg, extra?: LogMsg) {
     if (logLevel >= level) {
         const txt = typeof msg === 'function' ? msg() : msg;
@@ -42,7 +44,8 @@ export function log(level: LogLevel, msg: LogMsg, extra?: LogMsg) {
     }
 }
 
-export function logError(x, extra) { log(LogLevel.Error, x, extra); }
-export function logWarning(x, extra) { log(LogLevel.Warning, x, extra); }
-export function logInfo(x, extra) { log(LogLevel.Info, x, extra); }
-export function logDebug(x, extra) { log(LogLevel.Debug, x, extra); }
+export function logError(x, extra?: LogMsg) { log(LogLevel.Error, x, extra); }
+export function logWarning(x, extra?: LogMsg) { log(LogLevel.Warning, x, extra); }
+export function logInfo(x, extra?: LogMsg) { log(LogLevel.Info, x, extra); }
+export function logDebug(x, extra?: LogMsg) { log(LogLevel.Debug, x, extra); }
+export function logChatty(x, extra?: LogMsg) { log(LogLevel.Chatty, x, extra); }
