@@ -57,7 +57,7 @@ At a high level, Waxwing converts JS into a language called WWIR, optimizes that
 
 ### WWIR
 
-Waxwing uses Babel to parse JavaScript, and converts the JavaScript AST into an [intermediate representation](https://en.wikipedia.org/wiki/Intermediate_representation) called WWIR (three guesses what that stands for.) WWIR is an assembly-like language; [see an example of it here](https://github.com/bendmorris/waxwing/blob/master/tests/functional/dce_break_continue.out.ww) (compare the original [JS](https://github.com/bendmorris/waxwing/blob/master/tests/functional/dce_break_continue.in.js)).
+Waxwing uses Babel to parse JavaScript, and converts the JavaScript AST into an [intermediate representation](https://en.wikipedia.org/wiki/Intermediate_representation) called WWIR (three guesses what that stands for.) WWIR is an assembly-like language; [see an example of it here](https://github.com/bendmorris/waxwing/blob/master/tests/functional/controlFlow/dce_break_continue.out.ww) (compare the original [JS](https://github.com/bendmorris/waxwing/blob/master/tests/functional/controlFlow/dce_break_continue.in.js)).
 
 WWIR has a few properties which make it convenient to analyze and optimize:
 
