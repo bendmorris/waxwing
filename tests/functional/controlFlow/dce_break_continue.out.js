@@ -1,12 +1,13 @@
 function f() {
+    var $_r0 = console.log;
     while (inscrutableGlobal) {
-        console.log("hello");
+        $_r0("hello");
         if (inscrutableGlobal2) {
             break;
         }
     }
     do {
-        console.log("hello");
+        $_r0("hello");
         if (inscrutableGlobal4) {
             continue;
         }

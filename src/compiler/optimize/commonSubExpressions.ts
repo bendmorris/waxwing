@@ -12,7 +12,8 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
         switch (stmt.kind) {
             case ir.IrStmtType.Temp: {
                 if (stmt.expr.kind === ir.IrExprType.NewArray ||
-                    stmt.expr.kind === ir.IrExprType.NewObject)
+                    stmt.expr.kind === ir.IrExprType.NewObject ||
+                    stmt.effects.length)
                 {
                     break;
                 }
@@ -33,6 +34,6 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
     u.applyToNextBlocks((b) => optimizeBlock(b, {...available}), block);
 }
 
-export function optimizeFunction(firstBlock: ir.IrBlock) {
-    optimizeBlock(firstBlock);
+export function optimizeFunction(irFunction: ir.IrFunction) {
+    optimizeBlock(irFunction.body);
 }

@@ -1,17 +1,19 @@
 import fs from 'fs';
-import * as babel from '@babel/core';
+import * as t from '@babel/types';
 import * as babelParser from '@babel/parser';
 
-export type Ast = babel.Node;
+export type Ast = t.Node;
+export type AstProgram = t.Program;
+export type AstFile = t.File;
 
-export function parseFile(path: string): Ast[] {
+export function parseFile(path: string): AstFile {
     return parse(fs.readFileSync(path).toString(), {
         sourceFilename: path
     });
 }
 
-export function parse(code: string, options: babelParser.ParserOptions): Ast[] {
-    return babelParser.parse(code, options).program.body;
+export function parse(code: string, options: babelParser.ParserOptions): AstFile {
+    return babelParser.parse(code, options);
 }
 
 export interface SourcePos {
@@ -26,6 +28,10 @@ export interface Span {
 
 export interface SourceSpan extends Span {
     file: string,
+}
+
+export function fspan(file: string, span: Span) {
+    return { file, ...span };
 }
 
 export function fileSpan(file: string, startLine: number, startColumn: number, endLine: number, endColumn: number): SourceSpan {

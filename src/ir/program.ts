@@ -1,25 +1,24 @@
 import { IrBlock } from './block';
+import { IrFunction } from './function';
+import { Ast } from '../ast';
 
 export class IrProgram {
     blocks: IrBlock[];
-    functions: IrBlock[];
+    globalFunction: IrFunction;
+    functions: IrFunction[];
     _nextRegister: number;
 
-    constructor() {
+    constructor(ast: Ast) {
         this.blocks = [];
-        this.functions = [];
+        this.functions = [
+            this.globalFunction = new IrFunction(ast, this)
+        ];
+        this.globalFunction.name = '<global function>';
         this._nextRegister = 0;
     }
 
-    block(): IrBlock {
-        const newBlock = new IrBlock(this);
-        newBlock.id = this.blocks.length;
-        this.blocks.push(newBlock);
-        return newBlock;
-    }
-
     toString(): string {
-        return this.blocks.map((block) => `${block.id}:\n${block.toString()}${block.nextBlock ? ('(goto ' + block.nextBlock.id + ')\n') : ''}`).join('\n');
+        return this.blocks.map((block) => `${block.id}:\n${block.toString()}${block.nextBlock ? ('(continued ' + block.nextBlock.id + ')\n') : ''}`).join('\n');
     }
 
     getBlock(blockId: number) { return this.blocks[blockId]; }

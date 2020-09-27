@@ -1,14 +1,17 @@
-import * as ir from '../ir';
-import { applyToNextBlocks } from './utils';
+import * as ir from '../../ir';
+import { applyToNextBlocks } from '../utils';
 
 export class ReferenceMap {
+    program: ir.IrProgram;
     refs: Record<number, Record<number, ir.IrStmt[]>>;
 
-    constructor() {
+    constructor(program: ir.IrProgram) {
+        this.program = program;
         this.refs = {};
     }
 
-    addReference(blockId: number, varId: number, stmt: ir.IrStmt) {
+    addReference(refBlockId: number, refVarId: number, stmt: ir.IrStmt) {
+        const { blockId, varId } = this.program.getTempDefinition(refBlockId, refVarId);
         if (!this.refs[blockId]) {
             this.refs[blockId] = {};
         }
@@ -28,7 +31,7 @@ export class ReferenceMap {
 
 export function findReferences(block: ir.IrBlock, refs?: ReferenceMap): ReferenceMap {
     if (!refs) {
-        refs = new ReferenceMap();
+        refs = new ReferenceMap(block.program);
     }
     
     for (const stmt of block.body) {

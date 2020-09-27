@@ -1,10 +1,14 @@
 import * as ir from '../../ir';
 import { simplifyExpr } from '../utils';
+import { BlockBuilder } from '../compile/builder';
 
 // TODO: replace `simplfyExpr` use with constraint solver
 export function optimizeBlock(block: ir.IrBlock) {
     // any branch must be the final statement in a block
     const stmt = block.body[block.body.length - 1];
+    if (!stmt) {
+        return;
+    }
     switch (stmt.kind) {
         case ir.IrStmtType.If: {
             const simpleTest = simplifyExpr(block, stmt.condition);
@@ -15,11 +19,12 @@ export function optimizeBlock(block: ir.IrBlock) {
                     if (stmt.elseBody) {
                         stmt.elseBody.live = false;
                     }
-                    block.goto(stmt.body.id);
+                    // FIXME
+                    BlockBuilder.forBlock(block).goto(stmt.body.id);
                 } else {
                     stmt.body.live = false;
                     if (stmt.elseBody) {
-                        block.goto(stmt.elseBody.id);
+                        BlockBuilder.forBlock(block).goto(stmt.elseBody.id);
                     }
                 }
             }
@@ -43,7 +48,7 @@ export function optimizeBlock(block: ir.IrBlock) {
                         const knownBranch = !!simpleTest.value;
                         if (!knownBranch) {
                             block.body.pop().live = false;
-                            block.goto(stmt.body.id);
+                            BlockBuilder.forBlock(block).goto(stmt.body.id);
                             // FIXME: need to remove any break/continue in this branch
                         }
                     }

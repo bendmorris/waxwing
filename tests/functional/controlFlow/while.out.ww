@@ -3,7 +3,7 @@ $0:0 = function f() goto 1
 
 1:
 while something goto 2
-(goto 4)
+(continued 4)
 
 2:
 $2:0 = log("loop body 1") (IO)
@@ -15,7 +15,7 @@ break
 4:
 $4:0 = true || false
 while $4:0 goto 5
-(goto 7)
+(continued 7)
 
 5:
 $5:0 = log("loop body 2") (IO)

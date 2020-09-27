@@ -72,10 +72,10 @@ export function applyToExprsInExpr(f: IrExprCallback, expr: IrExpr) {
     f(expr);
     switch (expr.kind) {
         // special case for function expressions
-        case IrExprType.Function: {
-            applyToExprsInBlock(f, expr.def.body);
-            break;
-        }
+        // case IrExprType.Function: {
+        //     applyToExprsInBlock(f, expr.def.body);
+        //     break;
+        // }
         // compound
         case IrExprType.Assign: {
             f(expr.left);

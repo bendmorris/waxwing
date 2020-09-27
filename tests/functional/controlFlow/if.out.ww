@@ -2,9 +2,10 @@
 $0:0 = function f() goto 1
 
 1:
-$1:0 = true
-if $1:0 goto 2 else goto 3
-(goto 4)
+$1:0 = undefined
+$1:1 = true
+if $1:1 goto 2 else goto 3
+(continued 4)
 
 2:
 $2:0 = log("yes") (IO)

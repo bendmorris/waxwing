@@ -1,7 +1,7 @@
 import { Options } from '../options';
-import { Ast, parseFile } from '../ast';
-import { irCompile } from './irCompile';
-import { irSerialize } from './irSerialize';
+import { AstFile, parseFile } from '../ast';
+import { irCompile } from './compile';
+import { irSerialize } from './serialize';
 import { optimizeProgram } from './optimize';
 import * as log from '../log';
 
@@ -14,7 +14,7 @@ import * as log from '../log';
  * - Serializes the optimized WWIR into a JS source string
  */
 export function compile(options: Options): string {
-    let input: Ast[];
+    let input: AstFile;
     if (typeof options.input === 'string') {
         log.logInfo(`parsing file: ${options.input}`);
         input = parseFile(options.input);

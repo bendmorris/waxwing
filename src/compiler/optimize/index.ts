@@ -1,6 +1,5 @@
 import * as ir from '../../ir';
 import * as cullDeadStmts from './cullDeadStmts';
-import * as materializeInstances from './materializeInstances';
 import * as simplify from './simplify';
 import * as commonSubExpressions from './commonSubExpressions';
 import * as branchElimination from './branchElimination';
@@ -10,7 +9,6 @@ import * as log from '../../log';
 
 const baseOptimizations: Record<string, Optimization> = {
     cullDeadStmts,
-    materializeInstances,
     simplify,
     commonSubExpressions,
     branchElimination,
@@ -27,7 +25,7 @@ interface OptimizationMethods {
     optimizeProgram: (program: ir.IrProgram) => void,
     optimizeBlock: (block: ir.IrBlock) => void,
     optimizeStmt: (block: ir.IrBlock, stmt: ir.IrStmt) => void,
-    optimizeFunction: (firstBlock: ir.IrBlock) => void,
+    optimizeFunction: (irFunction: ir.IrFunction) => void,
 }
 
 export type Optimization = Partial<OptimizationMethods>;
@@ -38,8 +36,8 @@ export function applyOptimization(name: string, opt: Optimization, program: ir.I
     }
 
     if (opt.optimizeFunction) {
-        for (const firstBlock of program.functions) {
-            opt.optimizeFunction(firstBlock);
+        for (const irFunction of program.functions) {
+            opt.optimizeFunction(irFunction);
         }
     }
 

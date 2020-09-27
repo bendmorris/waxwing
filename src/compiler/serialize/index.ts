@@ -1,24 +1,27 @@
-import { Options } from '../options';
-import * as ir from '../ir';
-import { isLive } from './liveness';
+import { Options } from '../../options';
+import * as ir from '../../ir';
+import { isLive } from '../liveness';
 import * as babel from '@babel/core';
 import * as t from '@babel/types';
 
 class SerializeContext {
-    registers: Record<number, Record<number, number>>;
+    program:ir. IrProgram;
+    registers: Record<number, Record<number, string>>;
     nextRegister: number;
 
-    constructor() {
+    constructor(program: ir.IrProgram) {
+        this.program = program;
         this.registers = {};
         this.nextRegister = 0;
     }
 
-    registerFor(blockId: number, varId: number): number {
+    registerFor(refBlockId: number, refVarId: number): string {
+        const { blockId, varId, originalName } = this.program.getTempDefinition(refBlockId, refVarId);
         if (!this.registers[blockId]) {
             this.registers[blockId] = {};
         }
         if (this.registers[blockId][varId] === undefined) {
-            this.registers[blockId][varId] = this.nextRegister++;
+            this.registers[blockId][varId] = originalName || registerName(this.nextRegister++);
         }
         return this.registers[blockId][varId];
     }
@@ -61,7 +64,7 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
             if (meta.expr.kind === ir.IrExprType.Function && meta.expr.def.name) {
                 return t.identifier(meta.expr.def.name);
             } else if (meta.requiresRegister) {
-                return t.identifier(registerName(ctx.registerFor(expr.blockId, expr.varId)));
+                return t.identifier(ctx.registerFor(expr.blockId, expr.varId));
             }
             return exprToAst(ctx, block, meta.expr);
         }
@@ -153,7 +156,7 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
                 let current: ir.TempVar = expr.expr;
                 const meta = program.getTempDefinition(current.blockId, current.varId);
                 if (meta.requiresRegister) {
-                    target = t.identifier(registerName(ctx.registerFor(current.blockId, current.varId)));   
+                    target = t.identifier(ctx.registerFor(current.blockId, current.varId));
                 } else {
                     target = exprToAst(ctx, block, expr.expr);
                 }
@@ -257,8 +260,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                             const def = stmt.expr.def;
                             let name = def.name;
                             if (!name) {
-                                const register = ctx.registerFor(stmt.blockId, stmt.varId)
-                                name = registerName(register);
+                                name = ctx.registerFor(stmt.blockId, stmt.varId)
                             }
                             const bodyStmts = blockToAst(ctx, def.body);
                             stmts.push(t.functionDeclaration(
@@ -272,7 +274,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
                             if (meta.requiresRegister) {
                                 const register = ctx.registerFor(stmt.blockId, stmt.varId);
                                 stmts.push(t.variableDeclaration("var", [
-                                    t.variableDeclarator(t.identifier(registerName(register)), exprToAst(ctx, block, stmt.expr))
+                                    t.variableDeclarator(t.identifier(register), exprToAst(ctx, block, stmt.expr))
                                 ]));
                             } else if (stmt.effects.length && !meta.inlined) {
                                 // we need to preserve this effectful function call, but we don't need its value
@@ -294,7 +296,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
  * Convert a block of WWIR into a string of JS source.
  */
 export function irSerialize(program: ir.IrProgram, options: Options): string {
-    const ctx = new SerializeContext();
+    const ctx = new SerializeContext(program);
     const node = t.program(blockToAst(ctx, program.blocks[0]));
     const { code } = babel.transformFromAstSync(node, undefined, { compact: options.compact });
     return code + '\n';

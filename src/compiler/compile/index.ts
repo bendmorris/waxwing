@@ -1,9 +1,18 @@
-import * as ir from '../ir';
-import { Ast } from '../ast';
-import { markExprLive, markStmtLive, markExprEscapes } from './liveness';
-import { IrScope, ScopeType } from './scope';
+import * as ir from '../../ir';
+import { Ast, AstFile } from '../../ast';
+import { markExprLive, markStmtLive, markExprEscapes } from '../liveness';
+import { IrScope, AnnotatedNode } from './scope';
 import * as t from '@babel/types';
-import { tempToString } from '../ir';
+import { irPreProcess } from './preProcess';
+import { BlockBuilder } from './builder';
+import * as log from '../../log';
+
+interface IrCompileContext {
+    program: ir.IrProgram,
+    irFunction: ir.IrFunction,
+    scope: IrScope,
+    builder: BlockBuilder,
+}
 
 function resolveLval(scope: IrScope, lval: t.LVal): { name?: string, lvalue: ir.Lvalue, scope?: IrScope, value?: ir.IrTempExpr } {
     switch (lval.type) {
@@ -44,13 +53,13 @@ function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
  * Break down an AST node, returning a IrTrivialExpr. If this requires
  * decomposing, additional assignments will be added to `block`.
  */
-function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialExpr {
-    const program = block.program;
+function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
+    const { program, builder, scope } = ctx;
     function decompose(x: Ast) {
-        return decomposeExpr(ctx, block, x);
+        return decomposeExpr(ctx, x);
     }
     function temp(id: number) {
-        return ir.exprTemp2(block.id, id);
+        return ir.exprTemp2(builder.cursor.id, id);
     }
     if (ast === null) {
         throw new Error("attempting to decompose null AST");
@@ -70,16 +79,17 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                 }
             }
             if (t.isIdentifier(ast.left)) {
-                const temp = block.addTemp(decomposed);
-                updateLvalue(ctx, ast.left as t.LVal, temp);
+                const temp = builder.addTemp(decomposed);
+                temp.originalName = ast.left.name;
+                updateLvalue(scope, ast.left as t.LVal, temp);
                 return ir.exprTemp(temp);
             } else if (t.isMemberExpression(ast.left)) {
                 const target = decompose(ast.left.object);
                 const prop = t.isIdentifier(ast.left.property) ? ir.exprLiteral(ast.left.property.name) : decompose(ast.left.property);
-                const newTemp = block.addTemp(ir.exprSet(target, prop, decomposed));
+                const newTemp = builder.addTemp(ir.exprSet(target, prop, decomposed));
                 if (target.kind === ir.IrExprType.Temp) {
                     const currentMeta = program.getTemp(target.blockId, target.varId);
-                    block.newGeneration(newTemp, currentMeta);
+                    builder.newGeneration(newTemp, currentMeta);
                 }
                 return ir.exprTemp(newTemp);
             } else {
@@ -87,11 +97,11 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             }
         }
         case 'Identifier': {
-            const found = resolveLval(ctx, ast);
+            const found = resolveLval(scope, ast);
             if (found && found.value) {
                 let temp = program.getTemp(found.value.blockId, found.value.varId);
                 let next;
-                while (next = block.next[tempToString(temp)]) {
+                while (next = builder.cursor.next[ir.tempToString(temp)]) {
                     temp = next;
                 }
                 return ir.exprTemp2(temp.blockId, temp.varId);
@@ -108,7 +118,7 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
         }
         case 'UnaryExpression': {
             const decomposed = decompose(ast.argument);
-            const temp = block.addTemp(ir.exprUnop(ast.operator, ast.prefix, decomposed));
+            const temp = builder.addTemp(ir.exprUnop(ast.operator, ast.prefix, decomposed));
             return ir.exprTemp(temp);
         }
         case 'UpdateExpression': {
@@ -119,14 +129,14 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             if (ast.prefix) {
                 // prefix: provide the original value, and also update it
                 const decomposed = decompose(ast.argument);
-                const temp = block.addTemp(ir.exprBinop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)));
-                updateLvalue(ctx, ast.argument as t.LVal, temp);
+                const temp = builder.addTemp(ir.exprBinop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)));
+                updateLvalue(scope, ast.argument as t.LVal, temp);
                 return ir.exprTemp(temp);
             } else {
                 // suffix: update the value and use that new identifier
                 const decomposed = decompose(ast.argument);
-                const temp = block.addTemp(ir.exprBinop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)));
-                updateLvalue(ctx, ast.argument as t.LVal, temp);
+                const temp = builder.addTemp(ir.exprBinop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)));
+                updateLvalue(scope, ast.argument as t.LVal, temp);
                 return decomposed;
             }
         }
@@ -134,34 +144,36 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
         case 'LogicalExpression': {
             const decomposedLeft = decompose(ast.left),
                  decomposedRight = decompose(ast.right);
-            const temp = block.addTemp(ir.exprBinop(ast.operator, decomposedLeft, decomposedRight));
+            const temp = builder.addTemp(ir.exprBinop(ast.operator, decomposedLeft, decomposedRight));
             return ir.exprTemp(temp);
         }
         case 'CallExpression':
         case 'NewExpression': {
             const callee = decompose(ast.callee),
                 args = ast.arguments.map(decompose);
-            const temp = block.addTemp(ir.exprCall(callee, args, ast.type === 'NewExpression'));
+            const temp = builder.addTemp(ir.exprCall(callee, args, ast.type === 'NewExpression'));
             temp.effects.push(undefined);
             markStmtLive(temp);
             args.forEach((x) => {
-                markExprEscapes(block, x);
-                markExprLive(block, x);
+                markExprEscapes(builder.cursor, x);
+                markExprLive(builder.cursor, x);
             });
             return ir.exprTemp(temp);
         }
         case 'MemberExpression': {
             const expr = decompose(ast.object),
                 prop = ast.computed ? decompose(ast.property) : ir.exprLiteral((ast.property as t.Identifier).name);
-            const temp = block.addTemp(ir.exprProperty(expr, prop));
+            const temp = builder.addTemp(ir.exprProperty(expr, prop));
             return ir.exprTemp(temp);
         }
         case 'ArrayExpression': {
             let values = [];
             for (const value of ast.elements) {
-                values.push(decompose(value));
+                if (value !== null) {
+                    values.push(decompose(value));
+                }
             }
-            const temp = block.addTemp(ir.exprNewArray(values));
+            const temp = builder.addTemp(ir.exprNewArray(values));
             return ir.exprTemp(temp);
         }
         case 'ObjectExpression': {
@@ -183,14 +195,11 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
                     }
                 }
             }
-            const temp = block.addTemp(ir.exprNewObject(members));
+            const temp = builder.addTemp(ir.exprNewObject(members));
             return ir.exprTemp(temp);
         }
         case 'FunctionExpression': {
-            const def = new ir.FunctionDefinition(ctx.program);
-            def.name = ast.id ? ast.id.name : undefined;
-            compileStmt(ctx.childFunction(), def.body, ast.body);
-            const temp = block.addTemp(ir.exprFunction(def));
+            const temp = builder.addTemp(ir.exprFunction((ast as AnnotatedNode).irFunction));
             return ir.exprTemp(temp);
         }
         case 'SequenceExpression': {
@@ -201,23 +210,25 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
             return last;
         }
         case 'ConditionalExpression': {
-            const condition = decompose(ast.test);
-            const bodyExpr = decompose(ast.consequent);
-            const elseExpr = decompose(ast.alternate);
-            const builder = block.if();
-            builder.condition(condition);
-            const phiVar = block.nextTemp();
-            const bodyBlock = builder.body(),
-                elseBlock = builder.else();
-            const bodyVar = bodyBlock.nextTemp(),
-                elseVar = elseBlock.nextTemp();
-            bodyBlock.temp(bodyVar).expr(bodyExpr).finish();
-            elseBlock.temp(elseVar).expr(elseExpr).finish();
-            const stmt = builder.finish();
-            markStmtLive(stmt);
-            // FIXME: better way to split basic blocks? this phi goes in the next one
-            block.temp(phiVar).expr(ir.exprPhi([ir.temp(bodyBlock.id, bodyVar), ir.temp(elseBlock.id, elseVar)])).finish();
-            return ir.exprTemp2(block.id, phiVar);
+            // FIXME
+            throw new Error("unimplemented");
+            // const condition = decompose(ast.test);
+            // const bodyExpr = decompose(ast.consequent);
+            // const elseExpr = decompose(ast.alternate);
+            // const ifBuilder = builder.if();
+            // ifBuilder.condition(condition);
+            // const phiVar = builder.nextTemp();
+            // const bodyBlock = builder.body(),
+            //     elseBlock = builder.else();
+            // const bodyVar = bodyBlock.nextTemp(),
+            //     elseVar = elseBlock.nextTemp();
+            // bodyBlock.temp(bodyVar).expr(bodyExpr).finish();
+            // elseBlock.temp(elseVar).expr(elseExpr).finish();
+            // const stmt = builder.finish();
+            // markStmtLive(stmt);
+            // // FIXME: better way to split basic blocks? this phi goes in the next one
+            // block.temp(phiVar).expr(ir.exprPhi([ir.temp(bodyBlock.id, bodyVar), ir.temp(elseBlock.id, elseVar)])).finish();
+            // return ir.exprTemp2(block.id, phiVar);
         }
     }
     // we don't know what this is, so treat it as an opaque, effectful expression
@@ -230,45 +241,31 @@ function decomposeExpr(ctx: IrScope, block: ir.IrBlock, ast: Ast): ir.IrTrivialE
  * directly handles statements; expressions are handled in
  * `decomposeExpr`.
  */
-function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
-    const program = block.program;
+function compileStmt(ctx: IrCompileContext, ast: Ast) {
+    const { program, scope, builder } = ctx;
     function recurse(x: Ast) {
-        return compileStmt(ctx, block, x);
+        return compileStmt(ctx, x);
     }
     function decompose(x: Ast) {
-        return decomposeExpr(ctx, block, x);
+        return decomposeExpr(ctx, x);
     }
     if (ast === null) {
         throw new Error("attempting to compile null AST");
     }
     switch (ast.type) {
         case 'BlockStatement': {
-            const scope = ctx.childBlockScope();
-            compileBlock:
+            const newScope = scope.childBlockScope();
+            compileChild:
             for (const stmt of ast.body) {
-                const last = block.lastStmt();
-                if (last) {
-                    switch (last.kind) {
-                        case ir.IrStmtType.Break:
-                        case ir.IrStmtType.Continue:
-                        case ir.IrStmtType.Return:
-                        // case ir.IrStmtType.Throw:
-                        {
-                            break compileBlock;
-                        }
-                        case ir.IrStmtType.If:
-                        case ir.IrStmtType.Loop: {
-                            // FIXME: use a cursor with a reference to the block, do this automatically
-                            const next = program.block();
-                            block.nextBlock = next;
-                            next.prevBlock = block;
-                            next.available = block.available;
-                            block = next;
-                            break;
-                        }
+                compileStmt({ ...ctx, scope: newScope }, stmt);
+                switch (stmt.type) {
+                    case 'BreakStatement':
+                    case 'ContinueStatement':
+                    case 'ReturnStatement':
+                    case 'ThrowStatement': {
+                        break compileChild;
                     }
                 }
-                compileStmt(scope, block, stmt);
             }
             break;
         }
@@ -279,14 +276,16 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                         const decomposed = decl.init ? decompose(decl.init) : ir.exprLiteral(undefined);
                         let tmp: ir.TempVar;
                         if (decomposed.kind === ir.IrExprType.Temp) {
-                            tmp = ir.temp(block.id, decomposed.varId);
+                            tmp = ir.temp(decomposed.blockId, decomposed.varId);
+                            program.getTempDefinition(decomposed.blockId, decomposed.varId).originalName = decl.id.name;
                         } else {
-                            tmp = block.addTemp(decomposed);
+                            tmp = builder.addTemp(decomposed);
+                            (tmp as ir.IrTempStmt).originalName = decl.id.name;
                         }
-                        const scope = ast.kind === 'var' ? ctx.functionScope : ctx;
-                        scope.setBinding(decl.id.name, tmp);
+                        const boundScope = ast.kind === 'var' ? scope.functionScope : scope;
+                        boundScope.setBinding(decl.id.name, tmp);
                         // FIXME: addDeclaration should take a real TempVar, not a number
-                        block.addDeclaration(scope.id, decl.id.name, tmp.varId);
+                        builder.cursor.addDeclaration(scope.id, decl.id.name, tmp.varId);
                         break;
                     }
                     default: {
@@ -297,14 +296,15 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
             break;
         }
         case 'IfStatement': {
+            // this is a branch, so there's a chance to introduce phi here
             const condition = decompose(ast.test);
-            const builder = block.if();
-            builder.condition(condition);
-            compileStmt(ctx.childBlockScope(), builder.body(), ast.consequent);
+            const ifBuilder = builder.if();
+            ifBuilder.condition(condition);
+            compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: ifBuilder.body() }, ast.consequent);
             if (ast.alternate) {
-                compileStmt(ctx.childBlockScope(), builder.else(), ast.alternate);
+                compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: ifBuilder.else() }, ast.alternate);
             }
-            const stmt = builder.finish();
+            const stmt = ifBuilder.finish();
             markStmtLive(stmt);
             break;
         }
@@ -313,14 +313,14 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
                 recurse(ast.init);
             }
             const condition = ast.test ? decompose(ast.test) : ir.exprLiteral(true);
-            const builder = block.while();
-            builder.expr(condition);
-            const body = builder.body();
-            compileStmt(ctx.childBlockScope(), body, ast.body);
+            const loopBuilder = builder.while();
+            loopBuilder.expr(condition);
+            const body = loopBuilder.body();
+            compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: body }, ast.body);
             if (ast.update) {
-                compileStmt(ctx, body, ast.update);
+                compileStmt({ ...ctx, builder: body }, ast.update);
             }
-            const stmt = builder.finish();
+            const stmt = loopBuilder.finish();
             markStmtLive(stmt);
             break;
         }
@@ -334,44 +334,32 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
         case 'DoWhileStatement':
         case 'WhileStatement': {
             const condition = decompose(ast.test);
-            const builder = ast.type === 'DoWhileStatement' ? block.doWhile() : block.while();
-            builder.expr(condition);
-            compileStmt(ctx.childBlockScope(), builder.body(), ast.body);
-            const stmt = builder.finish();
+            const loopBuilder = ast.type === 'DoWhileStatement' ? builder.doWhile() : builder.while();
+            loopBuilder.expr(condition);
+            compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: loopBuilder.body() }, ast.body);
+            const stmt = loopBuilder.finish();
             markStmtLive(stmt);
             break;
         }
         case 'BreakStatement': {
-            const stmt = block.break();
+            const stmt = builder.break();
             markStmtLive(stmt);
             break;
         }
         case 'ContinueStatement': {
-            const stmt = block.continue();
+            const stmt = builder.continue();
             markStmtLive(stmt);
             break;
         }
         case 'ReturnStatement': {
             const returnValue = ast.argument ? decompose(ast.argument) : ir.exprLiteral(undefined);
-            const stmt = block.return(returnValue);
+            const stmt = builder.return(returnValue);
             markStmtLive(stmt);
-            markExprEscapes(block, returnValue);
+            markExprEscapes(builder.cursor, returnValue);
             break;
         }
         case 'FunctionDeclaration': {
-            // FIXME: initial pass to find function scoped variables and functions
-
-            const def = new ir.FunctionDefinition(ctx.program);
-            def.name = ast.id.name;
-            compileStmt(ctx.childFunction(), def.body, ast.body);
-            program.functions.push(def.body);
-            const temp = block.addTemp(ir.exprFunction(def));
-            if (!ctx.functionScope.parent) {
-                // keep top level function declarations
-                markStmtLive(temp);
-            }
-            ctx.functionScope.setBinding(ast.id.name, temp);
-            block.getTempDefinition(temp.varId).requiresRegister = true;
+            // noop; the temp was created during preprocessing, and the function will be compiled later
             break;
         }
         case 'ExpressionStatement': {
@@ -381,25 +369,43 @@ function compileStmt(ctx: IrScope, block: ir.IrBlock, ast: Ast) {
         default: {
             const decomposed = decompose(ast);
             if (decomposed.kind !== ir.IrExprType.Temp) {
-                block.addTemp(decomposed);
+                builder.addTemp(decomposed);
             }
         }
+    }
+}
+
+function compileFunction(program: ir.IrProgram, ast: AnnotatedNode) {
+    const { irFunction, scope, builder } = ast;
+    log.logDebug(`compiling function ${irFunction.name}`);
+    const ctx = { program, irFunction, scope, builder };
+    let stmts;
+    switch (ast.type) {
+        case 'Program': {
+            stmts = ast.body;
+            break;
+        }
+        case 'FunctionDeclaration':
+        case 'FunctionExpression': {
+            stmts = ast.body.body;
+            break;
+        }
+        default: {
+            throw new Error(`unexpected function node: ${ast.type}`);
+        }
+    }
+    for (const stmt of stmts) {
+        compileStmt(ctx, stmt);
     }
 }
 
 /**
  * Generate a WWIR program block from a Babel AST node.
  */
-export function irCompile(body: Ast[]): ir.IrProgram {
-    const program = new ir.IrProgram();
-    const ctx = new IrScope(program, ScopeType.FunctionScope);
-    const block = program.block();
-    program.functions.push(block);
-    // TODO: we need an initial pass to find `var` and function declarations...
-    // the initial pass should attach persistent scopes to the AST statements,
-    // which also need to be attached to the blocks themselves
-    for (const ast of body) {
-        compileStmt(ctx, block, ast);
+export function irCompile(ast: AstFile): ir.IrProgram {
+    const program = irPreProcess(ast);
+    for (const f of program.functions) {
+        compileFunction(program, f.ast);
     }
     return program;
 }

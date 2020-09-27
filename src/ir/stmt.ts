@@ -42,6 +42,7 @@ export interface IrTempStmt extends IrBase, TempVar {
     inlined: boolean,
     escapes: boolean,
     origin?: IrStmt,
+    originalName?: string,
 }
 
 /**

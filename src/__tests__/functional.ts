@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { parseFile } from '../ast';
 import { compile } from '../compiler';
-import { irCompile } from '../compiler/irCompile';
+import { irCompile } from '../compiler/compile';
 import { Options, makeOptions } from '../options';
 const { js: beautify } = require('js-beautify');
 
@@ -20,8 +20,13 @@ function globDir(dir: string, pattern: string): string[] {
     return results;
 }
 
+const commentPattern = /\/\/.*|\/\*[^]*\*\//g;
+
 function normalize(s) {
-    return beautify(s);
+    return beautify(
+        s.replace(commentPattern, ''),
+        { preserve_newlines: false }
+    );
 }
 
 /**

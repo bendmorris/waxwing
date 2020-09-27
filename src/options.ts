@@ -1,7 +1,7 @@
-import { Ast } from './ast';
+import { AstFile } from './ast';
 
 export interface Options {
-    input: string | Ast[],
+    input: string | AstFile,
     out: string,
     optimizeForSize: boolean,
     verbose: number,

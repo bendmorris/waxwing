@@ -2,7 +2,7 @@ import * as ir from '../../ir';
 import * as u from '../utils';
 
 function optimizeBlock(block: ir.IrBlock) {
-    const instances = {};
+    const instances: Record<string, ir.IrTempStmt> = {};
     const blockStack = [block];
     while (blockStack.length) {
         const block = blockStack.shift();
@@ -27,14 +27,28 @@ function optimizeBlock(block: ir.IrBlock) {
                                     if (instance.expr.kind === ir.IrExprType.NewObject) {
                                         // object set
                                         instance.expr.members.push({ key: stmt.expr.property, value: stmt.expr.value });
-                                    } else {
+                                    } else if (instance.expr.kind === ir.IrExprType.NewArray) {
                                         // array push
                                         instance.expr.values.push(stmt.expr.value);
+                                    }
+                                    for (const effect of stmt.effects) {
+                                        instance.effects.push(effect);
+                                        effect.source = instance;
                                     }
                                     stmt.live = false;
                                 }
                             }
                             break;
+                        }
+                        default: {
+                            ir.applyToExprsInStmt((x) => {
+                                switch (x.kind) {
+                                    case ir.IrExprType.Temp: {
+                                        delete instances[ir.tempToString(x)];
+                                        break;
+                                    }
+                                }
+                            }, stmt);
                         }
                     }
                 }
@@ -44,6 +58,6 @@ function optimizeBlock(block: ir.IrBlock) {
 }
 
 // TODO: replace `simplfyExpr` use with constraint solver
-export function optimizeFunction(firstBlock: ir.IrBlock) {
-    optimizeBlock(firstBlock);
+export function optimizeFunction(irFunction: ir.IrFunction) {
+    optimizeBlock(irFunction.body);
 }

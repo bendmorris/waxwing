@@ -1,9 +1,12 @@
 import * as ir from '../../ir';
 import * as u from '../utils';
-import { findReferences, ReferenceMap } from '../references';
+import { findReferences, ReferenceMap } from './references';
 
 function optimizeBlock(block: ir.IrBlock, refs: ReferenceMap) {
     for (const temp of Object.values(block.temps)) {
+        if (temp.kind !== ir.IrStmtType.Temp) {
+            continue;
+        }
         const meta = block.getTempDefinition(temp.varId);
         const references = refs.getReferences(meta.blockId, meta.varId);
         if (references.length < 2) {
@@ -35,7 +38,7 @@ function optimizeBlock(block: ir.IrBlock, refs: ReferenceMap) {
 }
 
 // TODO: replace `simplfyExpr` use with constraint solver
-export function optimizeFunction(firstBlock: ir.IrBlock) {
-    const refs = findReferences(firstBlock);
-    optimizeBlock(firstBlock, refs);
+export function optimizeFunction(irFunction: ir.IrFunction) {
+    const refs = findReferences(irFunction.blocks[0]);
+    optimizeBlock(irFunction.body, refs);
 }

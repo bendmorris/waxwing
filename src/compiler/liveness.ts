@@ -1,4 +1,3 @@
-import { boolean } from 'yargs';
 import * as ir from '../ir';
 import * as log from '../log';
 

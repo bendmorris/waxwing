@@ -1,5 +1,5 @@
 import { Ast, SourceSpan } from '../ast';
-import { FunctionDefinition } from './function';
+import { IrFunction } from './function';
 import { Lvalue, lvalueToString, lvalueGlobal } from './lvalue';
 import { TempVar, tempToString } from './temp';
 
@@ -9,12 +9,12 @@ export const enum IrExprType {
     Literal,
     Temp,
     Identifier,
-    Phi,
     This,
     Arguments,
     Next,
     Function,
     // must be decomposed
+    Phi,
     Assign,
     Set,
     Unop,
@@ -37,7 +37,6 @@ export function isTrivial(expr: IrExpr) {
         case IrExprType.Literal:
         case IrExprType.Temp:
         case IrExprType.Identifier:
-        case IrExprType.Phi:
         case IrExprType.This:
         case IrExprType.Arguments:
         case IrExprType.Next:
@@ -46,6 +45,11 @@ export function isTrivial(expr: IrExpr) {
         }
     }
     return false;
+}
+
+export function exprWithPos<T extends IrExpr>(expr: T, span: SourceSpan): T {
+    expr.loc = span;
+    return expr;
 }
 
 export interface IrRawExpr extends IrExprBase {
@@ -136,10 +140,10 @@ export interface IrNextExpr extends IrExprBase {
 
 export interface IrFunctionExpr extends IrExprBase {
     kind: IrExprType.Function,
-    def: FunctionDefinition,
+    def: IrFunction,
 }
 
-export function exprFunction(def: FunctionDefinition): IrFunctionExpr {
+export function exprFunction(def: IrFunction): IrFunctionExpr {
     return {
         kind: IrExprType.Function,
         def,
@@ -151,7 +155,6 @@ export type IrTrivialExpr =
     IrLiteralExpr |
     IrTempExpr |
     IrIdentifierExpr |
-    IrPhiExpr |
     IrThisExpr |
     IrArgumentsExpr |
     IrNextExpr |
@@ -302,6 +305,7 @@ export function exprNewArray(values: IrTrivialExpr[]): IrNewArrayExpr {
  */
 export type IrExpr = (
     IrTrivialExpr |
+    IrPhiExpr |
     IrAssignExpr |
     IrSetExpr |
     IrUnopExpr |
@@ -320,11 +324,11 @@ export function exprToString(expr: IrExpr) {
         case IrExprType.Call: return `${exprToString(expr.callee)}(${expr.args.map(exprToString).join(', ')})`;
         case IrExprType.NewObject: return `{${expr.members.map(({key, value}) => `${exprToString(key)}: ${exprToString(value)}`).join(', ')}}`;
         case IrExprType.NewArray: return `[${expr.values.map(exprToString).join(', ')}]`;
-        case IrExprType.Function: return `${expr.def.description()}`
+        case IrExprType.Function: return `${expr.def.toString()}`
         case IrExprType.Identifier: return lvalueToString(expr.lvalue);
         case IrExprType.Literal: return typeof expr.value === 'string' ? JSON.stringify(expr.value) : String(expr.value);
         case IrExprType.Next: return `next ${expr.nextIn ? 'in' : 'of'} ${exprToString(expr.value)}`;
-        case IrExprType.Phi: return `phi(${expr.temps.map(tempToString).join(', ')})`;
+        case IrExprType.Phi: return `$phi(${expr.temps.map(tempToString).join(', ')})`;
         case IrExprType.Property: return `${exprToString(expr.expr)}[${exprToString(expr.property)}]`;
         case IrExprType.Raw: return `<raw AST: ${expr.ast.type}>`;
         case IrExprType.Set: return `${exprToString(expr.expr)} :: [${expr.property ? exprToString(expr.property) : ''}] = ${exprToString(expr.value)}`;

@@ -1,4 +1,4 @@
-import * as ir from '../ir';
+import * as ir from '../../ir';
 
 function canReorder(from: ir.IrStmt, to: ir.IrStmt) {
     // TODO
