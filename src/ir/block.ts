@@ -15,8 +15,8 @@ export class IrBlock {
     next: Record<string, TempVar>;
     // map object instances to current generation
     live: boolean;
-    prevBlock?: IrBlock;
-    nextBlock?: IrBlock;
+    parents: IrBlock[];
+    children: IrBlock[];
     // declarations and assignments: { scope ID: { name: temp ID } }
     varDeclarations: Record<number, Record<string, number>>;
     varAssignments: Record<number, Record<string, number>>;
@@ -36,7 +36,11 @@ export class IrBlock {
         this.available = {};
         this._nextTemp = 0;
         this.live = true;
+        this.parents = [];
+        this.children = [];
     }
+
+    get lastStmt(): s.IrStmt | undefined { return this.body[this.body.length - 1]; }
 
     getTempMetadata(varId: number) { return this.temps[varId]; }
     getTempDefinition(varId: number): s.IrTempStmt | undefined {
@@ -62,8 +66,6 @@ export class IrBlock {
         this.varAssignments[scopeId][name] = tempId;
     }
     
-    lastStmt(): s.IrStmt | undefined { return this.body[this.body.length - 1]; }
-
     nextTemp(): number {
         return this._nextTemp++;
     }
@@ -108,38 +110,38 @@ export class IrBlock {
      * This block dominates block `other` if, to get to block `other`, all
      * paths must come through this block first.
      */
-    dominates(other: IrBlock): boolean {
-        if (other.irFunction !== this.irFunction) {
-            return false;
-        }
-        let current: IrBlock | undefined = this;
-        while (current) {
-            if (other === current) {
-                return true;
-            }
-            const stmt = current.body[current.body.length - 1];
-            if (stmt) {
-                // FIXME...
-                switch (stmt.kind) {
-                    case s.IrStmtType.If: {
-                        if (other === stmt.body) {
-                            return true;
-                        }
-                        if (other === stmt.elseBody) {
-                            return true;
-                        }
-                        break;
-                    }
-                    case s.IrStmtType.Loop: {
-                        if (other === stmt.body) {
-                            return true;
-                        }
-                        break;
-                    }
-                }
-            }
-            current = current.nextBlock;
-        }
-        return false;
-    }
+    // dominates(other: IrBlock): boolean {
+    //     if (other.irFunction !== this.irFunction) {
+    //         return false;
+    //     }
+    //     let current: IrBlock | undefined = this;
+    //     while (current) {
+    //         if (other === current) {
+    //             return true;
+    //         }
+    //         const stmt = current.body[current.body.length - 1];
+    //         if (stmt) {
+    //             // FIXME...
+    //             switch (stmt.kind) {
+    //                 case s.IrStmtType.If: {
+    //                     if (other === stmt.body) {
+    //                         return true;
+    //                     }
+    //                     if (other === stmt.elseBody) {
+    //                         return true;
+    //                     }
+    //                     break;
+    //                 }
+    //                 case s.IrStmtType.Loop: {
+    //                     if (other === stmt.body) {
+    //                         return true;
+    //                     }
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //         current = current.nextBlock;
+    //     }
+    //     return false;
+    // }
 }

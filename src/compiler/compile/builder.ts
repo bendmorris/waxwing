@@ -29,8 +29,17 @@ export class BlockBuilder {
         if (!this._cursor) {
             this._cursor = this.irFunction.block();
             if (this._prev) {
-                this._prev.nextBlock = this._cursor;
-                this._cursor.prevBlock = this._prev;
+                const lastStmt = this._prev.lastStmt;
+                switch (lastStmt.kind) {
+                    case ir.IrStmtType.If:
+                    case ir.IrStmtType.Loop:
+                    case ir.IrStmtType.Goto:
+                    {
+                        lastStmt.then = this._cursor;
+                        break;
+                    }
+                }
+                // FIXME: this will go away with better CSE
                 this._cursor.available = this._prev.available;
 
                 this._prev = undefined;
@@ -90,8 +99,8 @@ export class BlockBuilder {
         return new TempBuilder(this, stmt);
     }
 
-    goto(blockId: number) {
-        const stmt: ir.IrStmt = this.initStmt({ kind: ir.IrStmtType.Goto, blockId });
+    goto(dest: ir.IrBlock, then?: ir.IrBlock) {
+        const stmt: ir.IrStmt = this.initStmt({ kind: ir.IrStmtType.Goto, dest, then });
         stmt.live = true;
         this.cursor.push(stmt);
         return stmt;   

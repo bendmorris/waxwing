@@ -112,21 +112,23 @@ export function getNextBlocks(block: ir.IrBlock): ir.IrBlock[] {
                 if (lastStmt.elseBody) {
                     result.push(lastStmt.elseBody);
                 }
+                if (lastStmt.then) {
+                    result.push(lastStmt.then);
+                }
                 break;
             }
             case ir.IrStmtType.Loop: {
                 result.push(lastStmt.body);
+                if (lastStmt.then) {
+                    result.push(lastStmt.then);
+                }
                 break;
             }
             case ir.IrStmtType.Goto: {
-                const newBlock = block.program.getBlock(lastStmt.blockId);
-                result.push(newBlock);
+                result.push(lastStmt.dest);
                 break;
             }
         }
-    }
-    if (block.nextBlock) {
-        result.push(block.nextBlock);
     }
     return result;
 }

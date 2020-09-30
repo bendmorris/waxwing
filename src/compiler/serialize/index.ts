@@ -193,101 +193,107 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
     if (!stmts) {
         stmts = [];
     }
-    while (block) {
-        let i = 0;
-        while (i < block.body.length) {
-            const stmt  = block.body[i];
-            if (!isLive(stmt)) {
-                ++i;
-                continue;
-            }
-            switch (stmt.kind) {
-                case ir.IrStmtType.Break: {
-                    stmts.push(t.breakStatement());
-                    break;
-                }
-                case ir.IrStmtType.Continue: {
-                    stmts.push(t.continueStatement());
-                    break;
-                }
-                case ir.IrStmtType.Goto: {
-                    blockToAst(ctx, program.getBlock(stmt.blockId), stmts);
-                    break;
-                }
-                case ir.IrStmtType.If: {
-                    stmts.push(t.ifStatement(
-                        exprToAst(ctx, block, stmt.condition),
-                        t.blockStatement(blockToAst(ctx, stmt.body)),
-                        stmt.elseBody ? t.blockStatement(blockToAst(ctx, stmt.elseBody)) : undefined
-                    ));
-                    break;
-                }
-                case ir.IrStmtType.Loop: {
-                    switch (stmt.loopType) {
-                        case ir.LoopType.While: {
-                            stmts.push(t.whileStatement(
-                                exprToAst(ctx, block, stmt.expr),
-                                t.blockStatement(blockToAst(ctx, stmt.body))
-                            ));
-                            break;
-                        }
-                        case ir.LoopType.DoWhile: {
-                            stmts.push(t.doWhileStatement(
-                                exprToAst(ctx, block, stmt.expr),
-                                t.blockStatement(blockToAst(ctx, stmt.body))
-                            ));
-                            break;
-                        }
-                        case ir.LoopType.ForIn: {
-                            throw new Error("TODO");
-                            break;
-                        }
-                        case ir.LoopType.ForOf: {
-                            throw new Error("TODO");
-                            break;
-                        }
-                    }
-                    break;
-                }
-                case ir.IrStmtType.Return: {
-                    stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(ctx, block, stmt.expr)));
-                    break;
-                }
-                case ir.IrStmtType.Temp: {
-                    const meta = program.getBlock(stmt.blockId).getTempDefinition(stmt.varId);
-                    switch (stmt.expr.kind) {
-                        case ir.IrExprType.Function: {
-                            const def = stmt.expr.def;
-                            let name = def.name;
-                            if (!name) {
-                                name = ctx.registerFor(stmt.blockId, stmt.varId)
-                            }
-                            const bodyStmts = blockToAst(ctx, def.body);
-                            stmts.push(t.functionDeclaration(
-                                t.identifier(name),
-                                def.args.map((arg) => t.identifier(arg.name)),
-                                t.blockStatement(bodyStmts)
-                            ));
-                            break;
-                        }
-                        default: {
-                            if (meta.requiresRegister) {
-                                const register = ctx.registerFor(stmt.blockId, stmt.varId);
-                                stmts.push(t.variableDeclaration("var", [
-                                    t.variableDeclarator(t.identifier(register), exprToAst(ctx, block, stmt.expr))
-                                ]));
-                            } else if (stmt.effects.length && !meta.inlined) {
-                                // we need to preserve this effectful function call, but we don't need its value
-                                stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
+    let i = 0;
+    while (i < block.body.length) {
+        const stmt  = block.body[i];
+        if (!isLive(stmt)) {
             ++i;
+            continue;
         }
-        block = block.nextBlock;
+        switch (stmt.kind) {
+            case ir.IrStmtType.Break: {
+                stmts.push(t.breakStatement());
+                break;
+            }
+            case ir.IrStmtType.Continue: {
+                stmts.push(t.continueStatement());
+                break;
+            }
+            case ir.IrStmtType.Goto: {
+                blockToAst(ctx, stmt.dest, stmts);
+                if (stmt.then) {
+                    blockToAst(ctx, stmt.then, stmts);
+                }
+                break;
+            }
+            case ir.IrStmtType.If: {
+                stmts.push(t.ifStatement(
+                    exprToAst(ctx, block, stmt.condition),
+                    t.blockStatement(blockToAst(ctx, stmt.body)),
+                    stmt.elseBody ? t.blockStatement(blockToAst(ctx, stmt.elseBody)) : undefined
+                ));
+                if (stmt.then) {
+                    blockToAst(ctx, stmt.then, stmts);
+                }
+                break;
+            }
+            case ir.IrStmtType.Loop: {
+                switch (stmt.loopType) {
+                    case ir.LoopType.While: {
+                        stmts.push(t.whileStatement(
+                            exprToAst(ctx, block, stmt.expr),
+                            t.blockStatement(blockToAst(ctx, stmt.body))
+                        ));
+                        break;
+                    }
+                    case ir.LoopType.DoWhile: {
+                        stmts.push(t.doWhileStatement(
+                            exprToAst(ctx, block, stmt.expr),
+                            t.blockStatement(blockToAst(ctx, stmt.body))
+                        ));
+                        break;
+                    }
+                    case ir.LoopType.ForIn: {
+                        throw new Error("TODO");
+                        break;
+                    }
+                    case ir.LoopType.ForOf: {
+                        throw new Error("TODO");
+                        break;
+                    }
+                }
+                if (stmt.then) {
+                    blockToAst(ctx, stmt.then, stmts);
+                }
+                break;
+            }
+            case ir.IrStmtType.Return: {
+                stmts.push(t.returnStatement(stmt.expr === undefined ? undefined : exprToAst(ctx, block, stmt.expr)));
+                break;
+            }
+            case ir.IrStmtType.Temp: {
+                const meta = program.getBlock(stmt.blockId).getTempDefinition(stmt.varId);
+                switch (stmt.expr.kind) {
+                    case ir.IrExprType.Function: {
+                        const def = stmt.expr.def;
+                        let name = def.name;
+                        if (!name) {
+                            name = ctx.registerFor(stmt.blockId, stmt.varId)
+                        }
+                        const bodyStmts = blockToAst(ctx, def.body);
+                        stmts.push(t.functionDeclaration(
+                            t.identifier(name),
+                            def.args.map((arg) => t.identifier(arg.name)),
+                            t.blockStatement(bodyStmts)
+                        ));
+                        break;
+                    }
+                    default: {
+                        if (meta.requiresRegister) {
+                            const register = ctx.registerFor(stmt.blockId, stmt.varId);
+                            stmts.push(t.variableDeclaration("var", [
+                                t.variableDeclarator(t.identifier(register), exprToAst(ctx, block, stmt.expr))
+                            ]));
+                        } else if (stmt.effects.length && !meta.inlined) {
+                            // we need to preserve this effectful function call, but we don't need its value
+                            stmts.push(t.expressionStatement(exprToAst(ctx, block, stmt.expr)));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        ++i;
     }
     return stmts;
 }

@@ -2,8 +2,7 @@
 $0:0 = function f() goto 1
 
 1:
-while inscrutableGlobal goto 2
-(continued 4)
+while inscrutableGlobal goto 2 then goto 4
 
 2:
 $2:0 = console["log"]

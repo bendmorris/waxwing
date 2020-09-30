@@ -5,6 +5,7 @@ import { IrScope, AnnotatedNode } from './scope';
 import * as t from '@babel/types';
 import { irPreProcess } from './preProcess';
 import { BlockBuilder } from './builder';
+import { constructCfg } from './controlFlowGraph';
 import * as log from '../../log';
 
 interface IrCompileContext {
@@ -97,6 +98,9 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
             }
         }
         case 'Identifier': {
+            if (ast.name === 'undefined') {
+                return ir.exprLiteral(undefined);
+            }
             const found = resolveLval(scope, ast);
             if (found && found.value) {
                 let temp = program.getTemp(found.value.blockId, found.value.varId);
@@ -122,20 +126,17 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
             return ir.exprTemp(temp);
         }
         case 'UpdateExpression': {
-            const updateOps: Record<string, ir.BinaryOperator> = {
-                '++': '+',
-                '--': '-',
-            };
+            const op = ast.operator.substr(0, 1) as ir.BinaryOperator;
             if (ast.prefix) {
                 // prefix: provide the original value, and also update it
                 const decomposed = decompose(ast.argument);
-                const temp = builder.addTemp(ir.exprBinop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)));
+                const temp = builder.addTemp(ir.exprBinop(op, decomposed, ir.exprLiteral(1)));
                 updateLvalue(scope, ast.argument as t.LVal, temp);
                 return ir.exprTemp(temp);
             } else {
                 // suffix: update the value and use that new identifier
                 const decomposed = decompose(ast.argument);
-                const temp = builder.addTemp(ir.exprBinop(updateOps[ast.operator], decomposed, ir.exprLiteral(1)));
+                const temp = builder.addTemp(ir.exprBinop(op, decomposed, ir.exprLiteral(1)));
                 updateLvalue(scope, ast.argument as t.LVal, temp);
                 return decomposed;
             }
@@ -211,7 +212,7 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
         }
         case 'ConditionalExpression': {
             // FIXME
-            throw new Error("unimplemented");
+            throw new Error("ternary is not yet supported");
             // const condition = decompose(ast.test);
             // const bodyExpr = decompose(ast.consequent);
             // const elseExpr = decompose(ast.alternate);
@@ -263,6 +264,7 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
                     case 'ContinueStatement':
                     case 'ReturnStatement':
                     case 'ThrowStatement': {
+                        // any statements following one of these in a block are dead
                         break compileChild;
                     }
                 }
@@ -296,7 +298,7 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
             break;
         }
         case 'IfStatement': {
-            // this is a branch, so there's a chance to introduce phi here
+            // TODO: this is a branch, so there's a chance to introduce phi here
             const condition = decompose(ast.test);
             const ifBuilder = builder.if();
             ifBuilder.condition(condition);
@@ -342,11 +344,17 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
             break;
         }
         case 'BreakStatement': {
+            if (ast.label !== null) {
+                throw new Error("labeled break is not supported");
+            }
             const stmt = builder.break();
             markStmtLive(stmt);
             break;
         }
         case 'ContinueStatement': {
+            if (ast.label !== null) {
+                throw new Error("labeled continue is not supported");
+            }
             const stmt = builder.continue();
             markStmtLive(stmt);
             break;
@@ -406,6 +414,8 @@ export function irCompile(ast: AstFile): ir.IrProgram {
     const program = irPreProcess(ast);
     for (const f of program.functions) {
         compileFunction(program, f.ast);
+        // this is a generator; exhaust it to build the CFG
+        for (const _ of constructCfg({ program }, f.body)) {}
     }
     return program;
 }

@@ -51,7 +51,8 @@ export interface IrTempStmt extends IrBase, TempVar {
  */
 export interface IrGotoStmt extends IrBase {
     kind: IrStmtType.Goto,
-    blockId: number,
+    dest: IrBlock,
+    then?: IrBlock,
 }
 
 /**
@@ -62,6 +63,7 @@ export interface IrIfStmt extends IrBase {
     condition: IrTrivialExpr,
     body: IrBlock,
     elseBody?: IrBlock,
+    then?: IrBlock,
 }
 
 export const enum LoopType {
@@ -79,6 +81,7 @@ export interface IrLoopStmt extends IrBase {
     loopType: LoopType,
     expr: IrTrivialExpr,
     body: IrBlock,
+    then?: IrBlock,
 }
 
 /**
@@ -129,17 +132,21 @@ function stmtToStringBase(stmt: IrStmt): string {
             return `${tempToString(stmt)} = ${exprToString(stmt.expr)}`;
         }
         case IrStmtType.Goto: {
-            return `goto ${stmt.blockId}`;
+            return `goto ${stmt.dest.id}${stmt.then ? ` then goto ${stmt.then.id}` : ''}`;
         }
         case IrStmtType.Return: {
             return `return ${exprToString(stmt.expr)}`;
         }
-        case IrStmtType.If: return `if ${exprToString(stmt.condition)} goto ${stmt.body.id}${stmt.elseBody ? (' else goto ' + stmt.elseBody.id) : ''}`;
-        case IrStmtType.Loop: switch (stmt.loopType) {
-            case LoopType.While: return `while ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
-            case LoopType.DoWhile: return `do while ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
-            case LoopType.ForIn: return `for in ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
-            case LoopType.ForOf: return `for of ${exprToString(stmt.expr)} goto ${stmt.body.id}`;
+        case IrStmtType.If: return `if ${exprToString(stmt.condition)} goto ${stmt.body.id}${stmt.elseBody ? ` else goto ${stmt.elseBody.id}` : ''}${stmt.then ? ` then goto ${stmt.then.id}` : ''}`;
+        case IrStmtType.Loop: {
+            let loopType: string;
+            switch (stmt.loopType) {
+                case LoopType.While: loopType = 'while'; break;
+                case LoopType.DoWhile: loopType = 'do while'; break;
+                case LoopType.ForIn: loopType = 'for in'; break;
+                case LoopType.ForOf: loopType = 'for of'; break;
+            }
+            return `${loopType} ${exprToString(stmt.expr)} goto ${stmt.body.id}${stmt.then ? ` then goto ${stmt.then.id}` : ''}`;
         }
         case IrStmtType.Continue: return `continue`;
         case IrStmtType.Break: return `break`;

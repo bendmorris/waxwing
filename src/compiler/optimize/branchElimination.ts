@@ -19,12 +19,11 @@ export function optimizeBlock(block: ir.IrBlock) {
                     if (stmt.elseBody) {
                         stmt.elseBody.live = false;
                     }
-                    // FIXME
-                    BlockBuilder.forBlock(block).goto(stmt.body.id);
+                    BlockBuilder.forBlock(block).goto(stmt.body, stmt.then);
                 } else {
                     stmt.body.live = false;
                     if (stmt.elseBody) {
-                        BlockBuilder.forBlock(block).goto(stmt.elseBody.id);
+                        BlockBuilder.forBlock(block).goto(stmt.elseBody, stmt.then);
                     }
                 }
             }
@@ -48,7 +47,7 @@ export function optimizeBlock(block: ir.IrBlock) {
                         const knownBranch = !!simpleTest.value;
                         if (!knownBranch) {
                             block.body.pop().live = false;
-                            BlockBuilder.forBlock(block).goto(stmt.body.id);
+                            BlockBuilder.forBlock(block).goto(stmt.body, stmt.then);
                             // FIXME: need to remove any break/continue in this branch
                         }
                     }

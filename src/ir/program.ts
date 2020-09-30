@@ -18,7 +18,7 @@ export class IrProgram {
     }
 
     toString(): string {
-        return this.blocks.map((block) => `${block.id}:\n${block.toString()}${block.nextBlock ? ('(continued ' + block.nextBlock.id + ')\n') : ''}`).join('\n');
+        return this.blocks.map((block) => `${block.id}:\n${block.toString()}`).join('\n');
     }
 
     getBlock(blockId: number) { return this.blocks[blockId]; }

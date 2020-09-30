@@ -1,0 +1,26 @@
+0:
+$0:0 = function f() goto 1
+
+1:
+$1:0 = undefined
+$1:1 = function g() goto 2
+$1:2 = $1:1() (IO)
+$1:3 = $1:0 === undefined
+if $1:3 goto 3 then goto 4
+
+2:
+$2:0 = console["log"]
+$2:1 = $2:0("hello") (IO)
+
+3:
+$3:0 = console["log"]
+$3:1 = $3:0("now it's undefined") (IO)
+
+4:
+$4:0 = 1
+$4:1 = $4:0 === 1
+if $4:1 goto 5
+
+5:
+$5:0 = console["log"]
+$5:1 = $5:0("now it's one") (IO)

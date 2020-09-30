@@ -3,8 +3,7 @@ $0:0 = function f() goto 1
 
 1:
 $1:0 = 1
-if someCondition goto 2
-(continued 3)
+if someCondition goto 2 then goto 3
 
 2:
 $2:0 = 2

@@ -1,19 +1,19 @@
 import * as ir from '../../ir';
-import * as cullDeadStmts from './cullDeadStmts';
 import * as simplify from './simplify';
-import * as commonSubExpressions from './commonSubExpressions';
 import * as branchElimination from './branchElimination';
+import * as commonSubExpressions from './commonSubExpressions';
+import * as cullDeadStmts from './cullDeadStmts';
 import * as inlineInstances from './inlineInstances';
 import * as inlineTemps from './inlineTemps';
 import * as log from '../../log';
 
 const baseOptimizations: Record<string, Optimization> = {
-    cullDeadStmts,
     simplify,
-    commonSubExpressions,
     branchElimination,
+    commonSubExpressions,
     inlineInstances,
     inlineTemps,
+    cullDeadStmts,
 };
 
 /**
@@ -43,19 +43,16 @@ export function applyOptimization(name: string, opt: Optimization, program: ir.I
 
     if (opt.optimizeBlock || opt.optimizeStmt) {
         for (let block of program.blocks) {
-            while (block) {
-                if (!block.live) {
-                    break;
+            if (!block.live) {
+                break;
+            }
+            if (opt.optimizeBlock) {
+                opt.optimizeBlock(block);
+            }
+            if (opt.optimizeStmt) {
+                for (const stmt of block.body) {
+                    opt.optimizeStmt(block, stmt);
                 }
-                if (opt.optimizeBlock) {
-                    opt.optimizeBlock(block);
-                }
-                if (opt.optimizeStmt) {
-                    for (const stmt of block.body) {
-                        opt.optimizeStmt(block, stmt);
-                    }
-                }
-                block = block.nextBlock;
             }
         }
     }

@@ -1,5 +1,5 @@
 /**
- * UNIMPLEMENTED: better common subexpression handling
+ * UNIMPLEMENTED: common subexpressions across blocks
  *
  * Since `console.log` is shared by both `while` blocks, they have a common
  * ancestor, and `console.log` is not written by that block or any in between,
