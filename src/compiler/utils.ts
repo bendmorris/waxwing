@@ -126,6 +126,9 @@ export function getNextBlocks(block: ir.IrBlock): ir.IrBlock[] {
             }
             case ir.IrStmtType.Goto: {
                 result.push(lastStmt.dest);
+                if (lastStmt.then) {
+                    result.push(lastStmt.then);
+                }
                 break;
             }
         }

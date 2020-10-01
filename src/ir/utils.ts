@@ -1,4 +1,4 @@
-import { IrExprType, IrExpr } from './expr';
+import { IrExprType, IrExpr, exprTemp } from './expr';
 import { IrBlock } from './block';
 import { IrStmtType, IrStmt } from './stmt';
 
@@ -63,6 +63,11 @@ export function applyToExprsInStmt(f: IrExprCallback, stmt: IrStmt) {
         }
         case IrStmtType.Temp: {
             applyToExprsInExpr(f, stmt.expr);
+            break;
+        }
+        case IrStmtType.Generation: {
+            applyToExprsInExpr(f, exprTemp(stmt));
+            applyToExprsInExpr(f, exprTemp(stmt.from));
             break;
         }
     }

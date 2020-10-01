@@ -29,9 +29,9 @@ export class ReferenceMap {
     }
 }
 
-export function findReferences(block: ir.IrBlock, refs?: ReferenceMap): ReferenceMap {
+export function findReferences(program: ir.IrProgram, block: ir.IrBlock, refs?: ReferenceMap): ReferenceMap {
     if (!refs) {
-        refs = new ReferenceMap(block.program);
+        refs = new ReferenceMap(program);
     }
     
     for (const stmt of block.body) {
@@ -44,6 +44,6 @@ export function findReferences(block: ir.IrBlock, refs?: ReferenceMap): Referenc
             }
         }, stmt);
     }
-    applyToNextBlocks((next) => findReferences(next, refs), block);
+    applyToNextBlocks((next) => findReferences(program, next, refs), block);
     return refs;
 }

@@ -50,10 +50,9 @@ export class BlockBuilder {
 
     initStmt(_stmt: object): ir.IrStmt {
         const stmt = _stmt as ir.IrStmt;
-        stmt.block = this.cursor;
         Object.assign(stmt, {
-            live: false,
-            escapes: false,
+            live: true,
+            escapes: true,
             references: new Set(),
             backReferences: new Set(),
             effects: [],
@@ -171,7 +170,6 @@ class StatementBuilder<T extends ir.IrStmt> {
 
     constructor(builder: BlockBuilder, stmt: T) {
         this.builder = builder;
-        (stmt as ir.IrStmt).block = builder.cursor;
         this.program = builder.program;
         this.stmt = stmt;
     }

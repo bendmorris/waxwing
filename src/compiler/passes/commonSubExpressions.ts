@@ -3,7 +3,7 @@ import * as u from '../utils';
 
 type AvailableMap = Record<string, ir.IrTempStmt>;
 
-function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
+function visitBlock(program: ir.IrProgram, block: ir.IrBlock, available?: AvailableMap) {
     // TODO: partial availability, shared usage across branches
     if (!available) {
         available = {};
@@ -31,9 +31,9 @@ function optimizeBlock(block: ir.IrBlock, available?: AvailableMap) {
             }
         }
     }
-    u.applyToNextBlocks((b) => optimizeBlock(b, {...available}), block);
+    u.applyToNextBlocks((b) => visitBlock(program, b, {...available}), block);
 }
 
-export function optimizeFunction(irFunction: ir.IrFunction) {
-    optimizeBlock(irFunction.body);
+export function visitFunction(program: ir.IrProgram, irFunction: ir.IrFunction) {
+    visitBlock(program, irFunction.body);
 }

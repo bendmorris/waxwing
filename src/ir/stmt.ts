@@ -18,14 +18,53 @@ export const enum IrStmtType {
     Generation,
 }
 
+/**
+ * Some things, like liveness, can either be true/false, or conditional on the
+ * state of other statements.
+ */
+type BooleanGraph<T> = boolean | Set<T>;
+export function updateGraph<T>(graph: BooleanGraph<T>, newMember: T): BooleanGraph<T> {
+    if (graph === false) {
+        graph = new Set([newMember]);
+    } else if (graph instanceof Set) {
+        graph.add(newMember);
+    }
+    return graph;
+}
+
 export interface IrStmtMetadata {
-    block: IrBlock,
-    live: boolean,
+    live: BooleanGraph<IrStmt>,
+    escapes: BooleanGraph<IrStmt>,
     knownBranch?: boolean,
     references: Set<IrStmt>,
     backReferences: Set<IrStmt>,
     effects: (IrGenerationStmt | undefined)[],
 }
+
+export function isLive(stmt: IrStmt): boolean {
+    if (typeof stmt.live === 'boolean') {
+        return stmt.live;
+    } else {
+        for (const x of stmt.live) {
+            if (isLive(x)) {
+                return true;
+            }
+        }
+    }
+}
+
+export function escapes(stmt: IrStmt): boolean {
+    if (typeof stmt.escapes === 'boolean') {
+        return stmt.escapes;
+    } else {
+        for (const x of stmt.escapes) {
+            if (escapes(x)) {
+                return true;
+            }
+        }
+    }
+}
+
 
 export interface IrBase extends Partial<IrStmtMetadata> {
     kind: IrStmtType,

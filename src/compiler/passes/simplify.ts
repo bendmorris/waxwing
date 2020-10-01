@@ -1,7 +1,7 @@
 import * as ir from '../../ir';
 import { simplifyExpr, simplifyTrivialExpr } from '../utils';
 
-export function optimizeStmt(block: ir.IrBlock, stmt: ir.IrStmt) {
+export function visitStatement(program: ir.IrProgram, block: ir.IrBlock, stmt: ir.IrStmt) {
     switch (stmt.kind) {
         case ir.IrStmtType.Loop:
         case ir.IrStmtType.Return: {

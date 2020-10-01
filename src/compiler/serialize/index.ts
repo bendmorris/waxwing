@@ -1,6 +1,5 @@
 import { Options } from '../../options';
 import * as ir from '../../ir';
-import { isLive } from '../liveness';
 import * as babel from '@babel/core';
 import * as t from '@babel/types';
 
@@ -196,7 +195,7 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
     let i = 0;
     while (i < block.body.length) {
         const stmt  = block.body[i];
-        if (!isLive(stmt)) {
+        if (!ir.isLive(stmt)) {
             ++i;
             continue;
         }

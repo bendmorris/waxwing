@@ -19,9 +19,11 @@ function addChild(parent: ir.IrBlock, child: ir.IrBlock) {
  * This function returns a generator of terminal nodes; iterating over it will
  * construct the control flow graph.
  */
-export function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
+function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
     const last = block.lastStmt;
-
+    if (!last) {
+        return;
+    }
     switch (last.kind) {
         case ir.IrStmtType.If: {
             addChild(block, last.body);
@@ -88,4 +90,9 @@ export function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
             yield block;
         }
     }
+}
+
+export function visitFunction(program: ir.IrProgram, f: ir.IrFunction) {
+    // this is a generator; exhaust it to build the CFG
+    for (const _ of constructCfg({ program }, f.body)) {}
 }

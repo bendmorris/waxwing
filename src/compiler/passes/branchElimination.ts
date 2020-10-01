@@ -3,9 +3,9 @@ import { simplifyExpr } from '../utils';
 import { BlockBuilder } from '../compile/builder';
 
 // TODO: replace `simplfyExpr` use with constraint solver
-export function optimizeBlock(block: ir.IrBlock) {
+export function visitBlock(program: ir.IrProgram, block: ir.IrBlock) {
     // any branch must be the final statement in a block
-    const stmt = block.body[block.body.length - 1];
+    const stmt = block.lastStmt;
     if (!stmt) {
         return;
     }
@@ -13,6 +13,7 @@ export function optimizeBlock(block: ir.IrBlock) {
         case ir.IrStmtType.If: {
             const simpleTest = simplifyExpr(block, stmt.condition);
             if (simpleTest && simpleTest.kind === ir.IrExprType.Literal) {
+                stmt.live = false;
                 block.body.pop().live = false;
                 const knownBranch = !!simpleTest.value;
                 if (knownBranch) {

@@ -1,7 +1,7 @@
 import * as ir from '../../ir';
 import * as u from '../utils';
 
-function optimizeBlock(block: ir.IrBlock) {
+function visitBlock(program: ir.IrProgram, block: ir.IrBlock) {
     const instances: Record<string, ir.IrTempStmt> = {};
     const blockStack = [block];
     while (blockStack.length) {
@@ -58,6 +58,6 @@ function optimizeBlock(block: ir.IrBlock) {
 }
 
 // TODO: replace `simplfyExpr` use with constraint solver
-export function optimizeFunction(irFunction: ir.IrFunction) {
-    optimizeBlock(irFunction.body);
+export function visitFunction(program: ir.IrProgram, irFunction: ir.IrFunction) {
+    visitBlock(program, irFunction.body);
 }

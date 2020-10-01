@@ -1,11 +1,9 @@
 import * as ir from '../../ir';
 import { Ast, AstFile } from '../../ast';
-import { markExprLive, markStmtLive, markExprEscapes } from '../liveness';
 import { IrScope, AnnotatedNode } from './scope';
 import * as t from '@babel/types';
 import { irPreProcess } from './preProcess';
 import { BlockBuilder } from './builder';
-import { constructCfg } from './controlFlowGraph';
 import * as log from '../../log';
 
 interface IrCompileContext {
@@ -154,11 +152,6 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
                 args = ast.arguments.map(decompose);
             const temp = builder.addTemp(ir.exprCall(callee, args, ast.type === 'NewExpression'));
             temp.effects.push(undefined);
-            markStmtLive(temp);
-            args.forEach((x) => {
-                markExprEscapes(builder.cursor, x);
-                markExprLive(builder.cursor, x);
-            });
             return ir.exprTemp(temp);
         }
         case 'MemberExpression': {
@@ -307,7 +300,6 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
                 compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: ifBuilder.else() }, ast.alternate);
             }
             const stmt = ifBuilder.finish();
-            markStmtLive(stmt);
             break;
         }
         case 'ForStatement': {
@@ -323,7 +315,6 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
                 compileStmt({ ...ctx, builder: body }, ast.update);
             }
             const stmt = loopBuilder.finish();
-            markStmtLive(stmt);
             break;
         }
         // TODO
@@ -340,7 +331,6 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
             loopBuilder.expr(condition);
             compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: loopBuilder.body() }, ast.body);
             const stmt = loopBuilder.finish();
-            markStmtLive(stmt);
             break;
         }
         case 'BreakStatement': {
@@ -348,7 +338,6 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
                 throw new Error("labeled break is not supported");
             }
             const stmt = builder.break();
-            markStmtLive(stmt);
             break;
         }
         case 'ContinueStatement': {
@@ -356,14 +345,11 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
                 throw new Error("labeled continue is not supported");
             }
             const stmt = builder.continue();
-            markStmtLive(stmt);
             break;
         }
         case 'ReturnStatement': {
             const returnValue = ast.argument ? decompose(ast.argument) : ir.exprLiteral(undefined);
             const stmt = builder.return(returnValue);
-            markStmtLive(stmt);
-            markExprEscapes(builder.cursor, returnValue);
             break;
         }
         case 'FunctionDeclaration': {
@@ -414,8 +400,6 @@ export function irCompile(ast: AstFile): ir.IrProgram {
     const program = irPreProcess(ast);
     for (const f of program.functions) {
         compileFunction(program, f.ast);
-        // this is a generator; exhaust it to build the CFG
-        for (const _ of constructCfg({ program }, f.body)) {}
     }
     return program;
 }

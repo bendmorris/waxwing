@@ -2,7 +2,7 @@ import { Options } from '../options';
 import { AstFile, parseFile } from '../ast';
 import { irCompile } from './compile';
 import { irSerialize } from './serialize';
-import { optimizeProgram } from './optimize';
+import { visitProgram } from './passes';
 import * as log from '../log';
 
 /**
@@ -32,7 +32,7 @@ export function compile(options: Options): string {
         return ir.toString();
     }
 
-    optimizeProgram(ir);
+    visitProgram(ir);
 
     // serialize IR into a JS string
     return irSerialize(ir, options);
