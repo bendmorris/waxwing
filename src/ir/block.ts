@@ -112,43 +112,4 @@ export class IrBlock {
     toString(): string {
         return this.body.map(s.stmtToString).join('\n') + '\n';
     }
-
-    /**
-     * This block dominates block `other` if, to get to block `other`, all
-     * paths must come through this block first.
-     */
-    // dominates(other: IrBlock): boolean {
-    //     if (other.irFunction !== this.irFunction) {
-    //         return false;
-    //     }
-    //     let current: IrBlock | undefined = this;
-    //     while (current) {
-    //         if (other === current) {
-    //             return true;
-    //         }
-    //         const stmt = current.body[current.body.length - 1];
-    //         if (stmt) {
-    //             // FIXME...
-    //             switch (stmt.kind) {
-    //                 case s.IrStmtType.If: {
-    //                     if (other === stmt.body) {
-    //                         return true;
-    //                     }
-    //                     if (other === stmt.elseBody) {
-    //                         return true;
-    //                     }
-    //                     break;
-    //                 }
-    //                 case s.IrStmtType.Loop: {
-    //                     if (other === stmt.body) {
-    //                         return true;
-    //                     }
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //         current = current.nextBlock;
-    //     }
-    //     return false;
-    // }
 }

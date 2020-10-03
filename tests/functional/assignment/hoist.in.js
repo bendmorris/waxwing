@@ -1,9 +1,3 @@
-/**
- * UNIMPLEMENTED: common subexpressions across blocks
- *
- * `console.log` is used in multiple blocks and even a different function. It
- * should be replaced with a single temp.
- */
 function f() {
     g();
 
