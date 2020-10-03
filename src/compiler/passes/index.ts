@@ -22,6 +22,9 @@ const basePasses: Record<string, CompilePass> = {
  * Compiler passes can be objects but are generally modules; if they export
  * any of these traversal methods, they'll automatically be called across the
  * program being optimized.
+ *
+ * When there are multiple visitors, they are applied from lowest to highest level:
+ * statement, block, function, program.
  */
 interface CompilePassVisitors {
     visitProgram: (program: ir.IrProgram) => void,

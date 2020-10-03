@@ -1,14 +1,15 @@
 import * as ir from '../../ir';
+import * as log from '../../log';
 
 export interface CfgContext {
     program: ir.IrProgram,
-    continueDestination?: ir.IrBlock,
-    breakDestination?: ir.IrBlock,
+    continueTarget?: ir.IrBlock,
+    breakTarget?: ir.IrBlock,
 }
 
-function addChild(parent: ir.IrBlock, child: ir.IrBlock) {
+function addChild(parent: ir.IrBlock, child: ir.IrBlock, weak?: boolean) {
     if (child) {
-        parent.children.push(child);
+        (weak ? parent.weakChildren : parent.children).push(child);
         child.parents.push(parent);
     }
 }
@@ -26,6 +27,7 @@ function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
     }
     switch (last.kind) {
         case ir.IrStmtType.If: {
+            // if may proceed to the body
             addChild(block, last.body);
             for (const terminal of constructCfg(cfgContext, last.body)) {
                 if (last.then) {
@@ -34,6 +36,8 @@ function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
                     yield terminal;
                 }
             }
+            // if there's an else, we may proceed there;
+            // otherwise we may proceed to then or exit
             if (last.elseBody) {
                 for (const terminal of constructCfg(cfgContext, last.elseBody)) {
                     if (last.then) {
@@ -44,6 +48,9 @@ function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
                 }
             } else {
                 addChild(block, last.then);
+                if (!last.then) {
+                    yield block;
+                }
             }
             if (last.then) {
                 yield *constructCfg(cfgContext, last.then);
@@ -65,7 +72,7 @@ function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
         }
         case ir.IrStmtType.Loop: {
             if (last.loopType !== ir.LoopType.DoWhile) {
-                // we may not enter the loop body
+                // we may skip the loop body
                 addChild(block, last.then);
             }
             addChild(block, last.body);
@@ -73,26 +80,51 @@ function *constructCfg(cfgContext: CfgContext, block: ir.IrBlock) {
             const children = constructCfg(newCtx, last.body);
             if (last.then) {
                 for (const child of children) {
-                    addChild(child, last.body);
+                    addChild(child, last.body, true);
                     addChild(child, last.then);
                 }
                 yield *constructCfg(cfgContext, last.then);
             } else {
                 for (const child of children) {
-                    addChild(child, last.body);
+                    addChild(child, last.body, true);
                     yield child;
                 }
             }
             break;
         }
         default: {
-            // this must be a terminal block
-            yield block;
+            switch (last.kind) {
+                case ir.IrStmtType.Return: {
+                    // noop
+                    break;
+                }
+                case ir.IrStmtType.Break: {
+                    addChild(block, cfgContext.breakTarget);
+                    break;
+                }
+                case ir.IrStmtType.Continue: {
+                    addChild(block, cfgContext.continueTarget, true);
+                    break;
+                }
+                default: {
+                    // this must be a terminal block
+                    yield block;
+                }
+            }
         }
     }
 }
 
 export function visitFunction(program: ir.IrProgram, f: ir.IrFunction) {
     // this is a generator; exhaust it to build the CFG
-    for (const _ of constructCfg({ program }, f.body)) {}
+    const ctx: CfgContext = { program };
+    for (const block of constructCfg(ctx, f.body)) {
+        f.terminalBlocks.add(block);
+    }
+    for (const block of f.blocks) {
+        log.logChatty(() => `${block.id}: ${block.children.map((x) => x.id).sort().join(',')}${block.weakChildren.length ? ` (${block.weakChildren.map((x) => x.id).sort().join(',')})` : ''}`);
+        if (!block.children.length) {
+            f.terminalBlocks.add(block);
+        }
+    }
 }

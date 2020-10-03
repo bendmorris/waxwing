@@ -17,6 +17,8 @@ export class IrBlock {
     live: boolean;
     parents: IrBlock[];
     children: IrBlock[];
+    // used for loop cycles
+    weakChildren: IrBlock[];
     // declarations and assignments: { scope ID: { name: temp ID } }
     varDeclarations: Record<number, Record<string, number>>;
     varAssignments: Record<number, Record<string, number>>;
@@ -38,6 +40,7 @@ export class IrBlock {
         this.live = true;
         this.parents = [];
         this.children = [];
+        this.weakChildren = [];
     }
 
     get lastStmt(): s.IrStmt | undefined { return this.body[this.body.length - 1]; }
@@ -77,7 +80,7 @@ export class IrBlock {
         return block;
     }
 
-    push(stmt: s.IrStmt) {
+    push(stmt: s.IrStmt, index: number = -1) {
         switch (stmt.kind) {
             case s.IrStmtType.Temp: {
                 if (stmt.varId === undefined) {
@@ -99,7 +102,11 @@ export class IrBlock {
                 }
             }
         }, stmt);
-        this.body.push(stmt);
+        if (index === -1) {
+            this.body.push(stmt);
+        } else {
+            this.body.splice(index, 0, stmt);
+        }
     }
 
     toString(): string {

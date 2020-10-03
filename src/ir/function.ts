@@ -16,6 +16,7 @@ export class IrFunction {
     restParam?: string;
     parent: IrFunction;
     blocks: IrBlock[];
+    terminalBlocks: Set<IrBlock>;
 
     constructor(ast: Ast, program: IrProgram, parent?: IrFunction) {
         this.ast = ast;
@@ -25,7 +26,9 @@ export class IrFunction {
         this.args = [];
         this.restParam = undefined;
         this.parent = parent;
-        this.blocks = [this.block()];
+        this.blocks = [];
+        this.terminalBlocks = new Set();
+        this.block();
     }
 
     get body() { return this.blocks[0]; }
@@ -33,6 +36,7 @@ export class IrFunction {
     block(): IrBlock {
         const newBlock = new IrBlock(this);
         newBlock.id = this.program.blocks.length;
+        this.blocks.push(newBlock);
         this.program.blocks.push(newBlock);
         return newBlock;
     }

@@ -60,6 +60,9 @@ function exprToAst(ctx: SerializeContext, block: ir.IrBlock, expr: ir.IrExpr): t
             if (!meta || !meta.expr) {
                 throw new Error(`Unrecognized temp variable: ${ir.tempToString(expr)}`);
             }
+            if (meta.expr.kind === ir.IrExprType.Temp) {
+                return exprToAst(ctx, block, meta.expr);
+            }
             if (meta.expr.kind === ir.IrExprType.Function && meta.expr.def.name) {
                 return t.identifier(meta.expr.def.name);
             } else if (meta.requiresRegister) {
@@ -263,6 +266,10 @@ function blockToAst(ctx: SerializeContext, block: ir.IrBlock, stmts?: t.Statemen
             case ir.IrStmtType.Temp: {
                 const meta = program.getBlock(stmt.blockId).getTempDefinition(stmt.varId);
                 switch (stmt.expr.kind) {
+                    case ir.IrExprType.Temp: {
+                        // noop
+                        break;
+                    }
                     case ir.IrExprType.Function: {
                         const def = stmt.expr.def;
                         let name = def.name;

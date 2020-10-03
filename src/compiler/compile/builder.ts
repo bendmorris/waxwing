@@ -60,13 +60,14 @@ export class BlockBuilder {
         return stmt;
     }
 
-    /**
-     * If this expression is already available, return the existing temp var.
-     * Otherwise, add a new one and return it.
-     */
     addTemp(expr: ir.IrExpr): ir.IrTempStmt {
         const tempId = this.cursor.nextTemp();
         return this.temp(tempId).expr(expr).finish() as ir.IrTempStmt;
+    }
+
+    prependTemp(expr: ir.IrExpr): ir.IrTempStmt {
+        const tempId = this.cursor.nextTemp();
+        return this.temp(tempId).expr(expr).finish(0) as ir.IrTempStmt;
     }
 
     newGeneration(stmt: ir.IrStmt, temp: ir.TempVar): ir.IrGenerationStmt {
@@ -148,8 +149,8 @@ export class BlockBuilder {
         return stmt;
     }
 
-    push(stmt: ir.IrStmt) {
-        this.cursor.push(stmt);
+    push(stmt: ir.IrStmt, index: number = -1) {
+        this.cursor.push(stmt, index);
     }
 
     endBlock() {
@@ -174,8 +175,8 @@ class StatementBuilder<T extends ir.IrStmt> {
         this.stmt = stmt;
     }
 
-    finish(): T {
-        this.builder.push(this.stmt);
+    finish(index: number = -1): T {
+        this.builder.push(this.stmt, index);
         return this.stmt as T;
     }
 }
@@ -242,8 +243,8 @@ export class IfBuilder extends StatementBuilder<ir.IrIfStmt> {
         return branch;
     }
 
-    finish() {
-        const result = super.finish();
+    finish(index: number = -1) {
+        const result = super.finish(index);
         this.builder.endBlock();
         return result;
     }
@@ -261,8 +262,8 @@ export class LoopBuilder extends StatementBuilder<ir.IrLoopStmt> {
         return branch;
     }
 
-    finish() {
-        const result = super.finish();
+    finish(index: number = -1) {
+        const result = super.finish(index);
         this.builder.endBlock();
         return result;
     }
