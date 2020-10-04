@@ -2,6 +2,7 @@
 require('colors');
 import { compile } from './compiler';
 import { makeOptions } from './options';
+import { environments } from './environment';
 import * as log from './log';
 import fs from 'fs';
 import process from 'process';
@@ -52,6 +53,11 @@ Waxwing, an optimizing JavaScript compiler.
         .option('ir', {
             description: 'output WWIR instead of JS',
             type: 'boolean',
+        })
+        .option('env', {
+            description: 'intended execution environment of the output code',
+            type: 'string',
+            choices: Object.keys(environments),
         })
         .count('verbose')
     )

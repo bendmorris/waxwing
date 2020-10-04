@@ -7,6 +7,7 @@ export interface Options {
     verbose: number,
     outputIr: boolean,
     compact: boolean,
+    environment: string,
 }
 
 export function makeOptions(options: Partial<Options> = {}): Options {
@@ -23,5 +24,6 @@ export function makeOptions(options: Partial<Options> = {}): Options {
         verbose: 0,
         outputIr: false,
         compact: false,
+        environment: 'common',
     }, options);
 }

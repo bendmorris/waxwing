@@ -6,6 +6,8 @@ type AnticipatedForBlock = Record<string, ir.IrExpr>;
 type AnticipatedMap = Record<number, AnticipatedForBlock>;
 
 function validExpressionForCse(expr: ir.IrExpr) {
+    // FIXME: member access should only be valid here if the value doesn't escape and isn't called,
+    // or is a symbolic value that doesn't care about `this`
     switch (expr.kind) {
         case ir.IrExprType.NewArray:
         case ir.IrExprType.NewObject: {
