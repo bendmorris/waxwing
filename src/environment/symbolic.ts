@@ -1,6 +1,7 @@
 
 export enum SymbolicType {
     Value,
+    Constant,
     Function,
     Namespace,
 }
@@ -24,13 +25,24 @@ export interface SymbolicBase {
 
 export interface SymbolicValue extends SymbolicBase {
     kind: SymbolicType.Value,
-    value?: any,
 }
 
 export function value(props: Partial<SymbolicValue> = {}): SymbolicValue {
     return {
         kind: SymbolicType.Value,
         ...props,
+    };
+}
+
+export interface SymbolicConstant extends SymbolicBase {
+    kind: SymbolicType.Constant,
+    value: any,
+}
+
+export function constant(value: any): SymbolicConstant {
+    return {
+        kind: SymbolicType.Constant,
+        value,
     };
 }
 
@@ -47,10 +59,17 @@ export function func(props: Partial<SymbolicFunction> = {}): SymbolicFunction {
     };
 }
 
-export type Symbolic = SymbolicValue | SymbolicFunction | SymbolicNamespace;
+export type Symbolic = SymbolicValue | SymbolicConstant | SymbolicFunction | SymbolicNamespace;
 
 export function isConcrete(arg) {
-    // TODO
+    switch (arg.kind) {
+        case SymbolicType.Constant: {
+            return true;
+        }
+        case SymbolicType.Function: {
+            return !!arg.compTime;
+        }
+    }
     return false;
 }
 

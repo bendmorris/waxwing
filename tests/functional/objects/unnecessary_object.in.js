@@ -11,3 +11,5 @@ function f() {
     };
     return x.b;
 }
+
+console.log(f());

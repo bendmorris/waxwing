@@ -10,3 +10,5 @@ function f() {
         console.log("HI!");
     }
 }
+
+f();

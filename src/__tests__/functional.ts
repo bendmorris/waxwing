@@ -4,6 +4,7 @@ import { parseFile } from '../ast';
 import { compile } from '../compiler';
 import { irCompile } from '../compiler/compile';
 import { Options, makeOptions } from '../options';
+import * as util from 'util';
 const { js: beautify } = require('js-beautify');
 
 function globDir(dir: string, pattern: string): string[] {
@@ -60,14 +61,41 @@ describe('functional tests: JS -> JS', () => {
         {
             const outFile = testPath.replace(/\.in\.js$/, '.out.js');
             if (fs.existsSync(outFile)) {
-                test(`${testPath} -> JS`, () => {
-                    // TODO: overridable options
+                function compare() {
                     const options: Options = makeOptions({
                         input: testPath,
                     });
                     const out = normalize(compile(options));
                     const check = normalize(fs.readFileSync(outFile).toString());
+                    return [out, check];
+                }
+                test(`${testPath} -> JS`, () => {
+                    // TODO: overridable options
+                    const [out, check] = compare();
                     expect(out).toEqual(check);
+                });
+                test(`${testPath} -> stdout`, () => {
+                    const [out, check] = compare();
+                    function getOutput(x) {
+                        let out = '';
+                        let err;
+                        const console = {
+                            log: function (fmt, ...args: any[]) {
+                                out += util.format(fmt, ...args) + '\n';
+                            }
+                        }
+                        console;
+                        try {
+                            eval(x);
+                        } catch (e) {
+                            err = e;
+                        }
+                        return [out, err];
+                    }
+                    const [out1, err1] = getOutput(out);
+                    const [out2, err2] = getOutput(check);
+                    expect(out1).toEqual(out2);
+                    expect(err1).toEqual(err2);
                 });
             }
         }

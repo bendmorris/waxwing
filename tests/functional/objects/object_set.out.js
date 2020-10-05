@@ -5,3 +5,5 @@ function f() {
         c: 3
     };
 }
+
+console.log(f());

@@ -9,3 +9,5 @@ function f() {
     x.c = 3;
     return x;
 }
+
+console.log(f());

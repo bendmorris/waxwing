@@ -3,3 +3,5 @@ function f() {
     var c = a + b;
     return a + 1;
 }
+
+console.log(f());

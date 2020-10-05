@@ -4,3 +4,5 @@ function f() {
     x.d = 4;
     return x;
 }
+
+console.log(f());

@@ -1,14 +1,14 @@
 import * as symbolic from '../symbolic';
 
 export const MathObj = new symbolic.SymbolicNamespace({
-    E: symbolic.value({ value: Math.E }),
-    LN10: symbolic.value({ value: Math.LN10 }),
-    LN2: symbolic.value({ value: Math.LN2 }),
-    LOG10E: symbolic.value({ value: Math.LOG10E }),
-    LOG2E: symbolic.value({ value: Math.LOG2E }),
-    PI: symbolic.value({ value: Math.PI }),
-    SQRT1_2: symbolic.value({ value: Math.SQRT1_2 }),
-    SQRT2: symbolic.value({ value: Math.SQRT2 }),
+    E: symbolic.constant(Math.E),
+    LN10: symbolic.constant(Math.LN10),
+    LN2: symbolic.constant(Math.LN2),
+    LOG10E: symbolic.constant(Math.LOG10E),
+    LOG2E: symbolic.constant(Math.LOG2E),
+    PI: symbolic.constant(Math.PI),
+    SQRT1_2: symbolic.constant(Math.SQRT1_2),
+    SQRT2: symbolic.constant(Math.SQRT2),
     abs: symbolic.func({ compTime: symbolic.concreteWrapper(Math.abs) }),
     acos: symbolic.func({ compTime: symbolic.concreteWrapper(Math.acos) }),
     acosh: symbolic.func({ compTime: symbolic.concreteWrapper(Math.acosh) }),

@@ -7,3 +7,5 @@ function f() {
     var g = e + f;
     return g + 1;
 }
+
+console.log(f());

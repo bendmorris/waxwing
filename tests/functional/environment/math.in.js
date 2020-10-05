@@ -3,3 +3,5 @@ function f() {
     var y = Math.min(5, 1, 3);
     return x + y;
 }
+
+console.log(f());
