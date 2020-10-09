@@ -48,8 +48,7 @@ export function irPreProcess(ast: AstFile): ir.IrProgram {
                     if (scopeStack.length < 2) {
                         temp.live = true;
                     }
-                    scope.setBinding(path.node.id.name, temp);
-                    scope.functionScope.functionNames[path.node.id.name] = f;
+                    scope.addName(path.node.id.name, temp);
                 }
 
                 builderStack.push(builder);
@@ -64,11 +63,13 @@ export function irPreProcess(ast: AstFile): ir.IrProgram {
                 for (const decl of path.node.declarations) {
                     if (t.isIdentifier(decl.id)) {
                         const scope = scopeStack[scopeStack.length - 1].functionScope;
-                        (path.node.kind === 'var' ? scope.functionScope : scope).varNames.add(decl.id.name);
+                        const varScope = (path.node.kind === 'var' ? scope.functionScope : scope);
                         if (path.node.kind === 'var') {
                             // `var` is undefined until we encounter its definition
                             const temp = builderStack[builderStack.length - 1].addTemp(ir.exprLiteral(undefined));
-                            scope.setBinding(decl.id.name, temp);
+                            varScope.addName(decl.id.name, temp);
+                        } else {
+                            varScope.addName(decl.id.name, false);
                         }
                     } else {
                         throw new Error(`unsupported var identifier type: ${decl.id.type}`);

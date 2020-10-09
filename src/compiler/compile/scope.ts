@@ -10,6 +10,12 @@ export interface NodeMetadata {
 }
 export type AnnotatedNode = t.Node & Partial<NodeMetadata>;
 
+export interface ResolvedName {
+    scope: IrScope,
+    name: string,
+    initialValue?: ir.TempVar,
+}
+
 export class IrScope {
     program: ir.IrProgram;
     id: number;
@@ -17,14 +23,11 @@ export class IrScope {
     function?: ir.IrFunction;
     parent?: IrScope;
     functionScope?: IrScope;
-    varNames: Set<string>;
-    functionNames: Record<string, IrFunction>;
-    // FIXME: bindings should be a list of TempVar, for closures to see all possible values
-    bindings: Record<string, ir.TempVar>;
+    names: Record<string, ResolvedName>;
 
     constructor(program: ir.IrProgram, irFunction?: ir.IrFunction, parent?: IrScope) {
         this.program = program;
-        this.id = parent ? (parent.id + 1) : 0;
+        this.id = program._nextScope++;
         this.function = irFunction;
         this.parent = parent;
         // if this is a block scope, the closest parent function scope is ours
@@ -32,9 +35,7 @@ export class IrScope {
         while (this.functionScope && !this.functionScope.function) {
             this.functionScope = this.functionScope.parent;
         }
-        this.varNames = new Set();
-        this.functionNames = {};
-        this.bindings = {};
+        this.names = {};
     }
 
     childFunction(irFunction: ir.IrFunction) {
@@ -45,19 +46,23 @@ export class IrScope {
         return new IrScope(this.program, undefined, this);
     }
 
-    getBinding(name: string): ir.TempVar | undefined {
-        return this.bindings[name];
+    addName(name: string, initialValue: ir.TempVar | false) {
+        this.names[name] = {
+            scope: this,
+            name,
+            initialValue: initialValue || undefined,
+        };
     }
 
-    setBinding(name: string, temp: ir.TempVar) {
-        this.bindings[name] = temp;
-    }
-
-    findScopeWithBinding(name: string): IrScope | undefined {
+    resolveName(name: string): ResolvedName | undefined {
         let current: IrScope | undefined = this;
-        while (current && current.bindings[name] === undefined) {
+        while (current) {
+            const resolved = current.names[name]
+            if (resolved) {
+                return resolved;
+            }
             current = current.parent;
         }
-        return current;
+        return undefined;
     }
 }

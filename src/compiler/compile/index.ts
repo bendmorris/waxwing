@@ -1,29 +1,30 @@
 import * as ir from '../../ir';
 import { Ast, AstFile } from '../../ast';
-import { IrScope, AnnotatedNode } from './scope';
+import { IrScope, AnnotatedNode, ResolvedName } from './scope';
 import * as t from '@babel/types';
 import { irPreProcess } from './preProcess';
 import { BlockBuilder } from './builder';
 import * as log from '../../log';
+import { Bindings, nameToString } from './binding';
 
-interface IrCompileContext {
+interface CompileContext {
     program: ir.IrProgram,
     irFunction: ir.IrFunction,
     scope: IrScope,
     builder: BlockBuilder,
+    bindings: Bindings,
 }
 
-function resolveLval(scope: IrScope, lval: t.LVal): { name?: string, lvalue: ir.Lvalue, scope?: IrScope, value?: ir.IrTempExpr } {
+function resolveLval(ctx: CompileContext, scope: IrScope, lval: t.LVal): { resolved?: ResolvedName, lvalue: ir.Lvalue, value?: ir.IrTempExpr } {
     switch (lval.type) {
         case 'Identifier': {
-            const found = scope.findScopeWithBinding(lval.name);
+            const found = scope.resolveName(lval.name);
             if (found) {
-                const lvalue = ir.lvalueScoped(found.id, lval.name);
-                const binding = found.getBinding(lval.name);
+                const binding = ctx.bindings[nameToString(found)] || found.initialValue;
+                const lvalue = ir.lvalueScoped(found.scope.id, lval.name);
                 return {
-                    name: lval.name,
+                    resolved: found,
                     lvalue,
-                    scope: found,
                     value: ir.exprTemp2(binding.blockId, binding.varId),
                 };
             } else {
@@ -38,13 +39,14 @@ function resolveLval(scope: IrScope, lval: t.LVal): { name?: string, lvalue: ir.
     }
 }
 
-function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
-    const found = resolveLval(scope, lval);
+function updateLvalue(ctx: CompileContext, scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
+    const found = resolveLval(ctx, scope, lval);
     if (!found) {
         throw new Error(`couldn't resolve lvalue: ${lval}`);
     }
-    if (found.scope) {
-        found.scope.setBinding(found.name, temp);
+    if (found.resolved) {
+        const name = nameToString(found.resolved);
+        ctx.bindings[name] = temp;
     }
 }
 
@@ -52,7 +54,7 @@ function updateLvalue(scope: IrScope, lval: t.LVal, temp: ir.TempVar) {
  * Break down an AST node, returning a IrTrivialExpr. If this requires
  * decomposing, additional assignments will be added to `block`.
  */
-function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
+function decomposeExpr(ctx: CompileContext, ast: Ast): ir.IrTrivialExpr {
     const { program, builder, scope } = ctx;
     function decompose(x: Ast) {
         return decomposeExpr(ctx, x);
@@ -80,7 +82,7 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
             if (t.isIdentifier(ast.left)) {
                 const temp = builder.addTemp(decomposed);
                 temp.originalName = ast.left.name;
-                updateLvalue(scope, ast.left as t.LVal, temp);
+                updateLvalue(ctx, scope, ast.left as t.LVal, temp);
                 return ir.exprTemp(temp);
             } else if (t.isMemberExpression(ast.left)) {
                 const target = decompose(ast.left.object);
@@ -99,7 +101,7 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
             if (ast.name === 'undefined') {
                 return ir.exprLiteral(undefined);
             }
-            const found = resolveLval(scope, ast);
+            const found = resolveLval(ctx, scope, ast);
             if (found && found.value) {
                 let temp = program.getTemp(found.value.blockId, found.value.varId);
                 let next;
@@ -129,13 +131,13 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
                 // prefix: provide the original value, and also update it
                 const decomposed = decompose(ast.argument);
                 const temp = builder.addTemp(ir.exprBinop(op, decomposed, ir.exprLiteral(1)));
-                updateLvalue(scope, ast.argument as t.LVal, temp);
+                updateLvalue(ctx, scope, ast.argument as t.LVal, temp);
                 return ir.exprTemp(temp);
             } else {
                 // suffix: update the value and use that new identifier
                 const decomposed = decompose(ast.argument);
                 const temp = builder.addTemp(ir.exprBinop(op, decomposed, ir.exprLiteral(1)));
-                updateLvalue(scope, ast.argument as t.LVal, temp);
+                updateLvalue(ctx, scope, ast.argument as t.LVal, temp);
                 return decomposed;
             }
         }
@@ -235,7 +237,7 @@ function decomposeExpr(ctx: IrCompileContext, ast: Ast): ir.IrTrivialExpr {
  * directly handles statements; expressions are handled in
  * `decomposeExpr`.
  */
-function compileStmt(ctx: IrCompileContext, ast: Ast) {
+function compileStmt(ctx: CompileContext, ast: Ast) {
     const { program, scope, builder } = ctx;
     function recurse(x: Ast) {
         return compileStmt(ctx, x);
@@ -248,7 +250,7 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
     }
     switch (ast.type) {
         case 'BlockStatement': {
-            const newScope = scope.childBlockScope();
+            const newScope = (ast as AnnotatedNode).scope;
             compileChild:
             for (const stmt of ast.body) {
                 compileStmt({ ...ctx, scope: newScope }, stmt);
@@ -278,7 +280,7 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
                             (tmp as ir.IrTempStmt).originalName = decl.id.name;
                         }
                         const boundScope = ast.kind === 'var' ? scope.functionScope : scope;
-                        boundScope.setBinding(decl.id.name, tmp);
+                        ctx.bindings[nameToString({ scope: boundScope, name: decl.id.name })] = tmp;
                         // FIXME: addDeclaration should take a real TempVar, not a number
                         builder.cursor.addDeclaration(scope.id, decl.id.name, tmp.varId);
                         break;
@@ -291,15 +293,35 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
             break;
         }
         case 'IfStatement': {
-            // TODO: this is a branch, so there's a chance to introduce phi here
             const condition = decompose(ast.test);
             const ifBuilder = builder.if();
             ifBuilder.condition(condition);
-            compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: ifBuilder.body() }, ast.consequent);
+            let branchBindings = [{ ...ctx.bindings }];
+            compileStmt({ ...ctx, bindings: branchBindings[0], builder: ifBuilder.body() }, ast.consequent);
             if (ast.alternate) {
-                compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: ifBuilder.else() }, ast.alternate);
+                branchBindings.push({...ctx.bindings});
+                compileStmt({ ...ctx, bindings: branchBindings[1], builder: ifBuilder.else() }, ast.alternate);
             }
-            const stmt = ifBuilder.finish();
+            ifBuilder.finish();
+            // place phis
+            const phis: Map<string, ir.TempVar[]> = new Map();
+            for (const name in ctx.bindings) {
+                const prev = ctx.bindings[name];
+                for (const branch of branchBindings) {
+                    const branched = branch[name];
+                    if (branched && !ir.tempEqual(prev, branched)) {
+                        if (!phis.has(name)) {
+                            phis.set(name, [prev, branched]);
+                        } else {
+                            phis.get(name).push(branched);
+                        }
+                    }
+                }
+            }
+            for (const [name, temps] of phis) {
+                const newTemp = builder.addTemp(ir.exprPhi(temps));
+                ctx.bindings[name] = newTemp;
+            }
             break;
         }
         case 'ForStatement': {
@@ -310,11 +332,11 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
             const loopBuilder = builder.while();
             loopBuilder.expr(condition);
             const body = loopBuilder.body();
-            compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: body }, ast.body);
+            compileStmt({ ...ctx, builder: body }, ast.body);
             if (ast.update) {
                 compileStmt({ ...ctx, builder: body }, ast.update);
             }
-            const stmt = loopBuilder.finish();
+            loopBuilder.finish();
             break;
         }
         // TODO
@@ -329,7 +351,7 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
             const condition = decompose(ast.test);
             const loopBuilder = ast.type === 'DoWhileStatement' ? builder.doWhile() : builder.while();
             loopBuilder.expr(condition);
-            compileStmt({ ...ctx, scope: scope.childBlockScope(), builder: loopBuilder.body() }, ast.body);
+            compileStmt({ ...ctx, builder: loopBuilder.body() }, ast.body);
             const stmt = loopBuilder.finish();
             break;
         }
@@ -372,7 +394,7 @@ function compileStmt(ctx: IrCompileContext, ast: Ast) {
 function compileFunction(program: ir.IrProgram, ast: AnnotatedNode) {
     const { irFunction, scope, builder } = ast;
     log.logDebug(`compiling function ${irFunction.name}`);
-    const ctx = { program, irFunction, scope, builder };
+    const ctx = { bindings: {}, program, irFunction, scope, builder };
     let stmts;
     switch (ast.type) {
         case 'Program': {

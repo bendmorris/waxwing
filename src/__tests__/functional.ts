@@ -69,34 +69,54 @@ describe('functional tests: JS -> JS', () => {
                     const check = normalize(fs.readFileSync(outFile).toString());
                     return [out, check];
                 }
-                test(`${testPath} -> JS`, () => {
-                    // TODO: overridable options
-                    const [out, check] = compare();
+
+                let out, check, err;
+                try {
+                    [out, check] = compare();
+                } catch (e) {
+                    err = e;
+                }
+
+                test(`${testPath}: compile`, () => {
+                    if (err) {
+                        throw err;
+                    }
+                    expect(out.length === 0).toEqual(check.length === 0);
+                });
+
+                test(`${testPath}: JS output`, () => {
+                    if (err) {
+                        throw err;
+                    }
                     expect(out).toEqual(check);
                 });
-                test(`${testPath} -> stdout`, () => {
-                    const [out, check] = compare();
-                    function getOutput(x) {
-                        let out = '';
-                        let err;
-                        const console = {
-                            log: function (fmt, ...args: any[]) {
-                                out += util.format(fmt, ...args) + '\n';
+                if (!err && (out.indexOf('console.log') !== -1 || check.indexOf('console.log') !== -1)) {
+                    test(`${testPath}: program stdout`, () => {
+                        if (err) {
+                            throw err;
+                        }
+                        function getOutput(x) {
+                            let out = '';
+                            let err;
+                            const console = {
+                                log: function (fmt, ...args: any[]) {
+                                    out += util.format(fmt, ...args) + '\n';
+                                }
                             }
+                            console;
+                            try {
+                                eval(x);
+                            } catch (e) {
+                                err = e;
+                            }
+                            return [out, err];
                         }
-                        console;
-                        try {
-                            eval(x);
-                        } catch (e) {
-                            err = e;
-                        }
-                        return [out, err];
-                    }
-                    const [out1, err1] = getOutput(out);
-                    const [out2, err2] = getOutput(check);
-                    expect(out1).toEqual(out2);
-                    expect(err1).toEqual(err2);
-                });
+                        const [out1, err1] = getOutput(out);
+                        const [out2, err2] = getOutput(check);
+                        expect(out1).toEqual(out2);
+                        expect(err1).toEqual(err2);
+                    });
+                };
             }
         }
     }

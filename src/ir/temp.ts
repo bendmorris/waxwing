@@ -16,3 +16,7 @@ export function temp(blockId: number, varId: number): TempVar {
 export function tempToString(temp: TempVar) {
     return `$${temp.blockId}:${temp.varId}`;
 }
+
+export function tempEqual(a: TempVar, b: TempVar) {
+    return a.blockId === b.blockId && a.varId === b.varId;
+}

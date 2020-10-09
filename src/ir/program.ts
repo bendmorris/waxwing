@@ -7,6 +7,7 @@ export class IrProgram {
     globalFunction: IrFunction;
     functions: IrFunction[];
     _nextRegister: number;
+    _nextScope: number;
 
     constructor(ast: Ast) {
         this.blocks = [];
@@ -15,6 +16,7 @@ export class IrProgram {
         ];
         this.globalFunction.name = '<global function>';
         this._nextRegister = 0;
+        this._nextScope = 0;
     }
 
     toString(): string {
